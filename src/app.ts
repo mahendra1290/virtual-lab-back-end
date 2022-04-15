@@ -5,7 +5,9 @@ import logger from "morgan"
 import cors from "cors"
 import 'dotenv/config'
 import './fireabase'
-import apiRouter from "./routes/api"
+import apiRouter from "./routes/lab-sessions"
+import usersRouter from "./routes/users"
+import labsRouter from "./routes/labs"
 const app = express()
 
 const corsOptions = {
@@ -18,6 +20,8 @@ app.use(json())
 app.use(urlencoded({ extended: false }))
 app.use(cookieParser())
 
-app.use("/api", apiRouter)
+app.use("/api/users", usersRouter)
+app.use("/api/lab-sessions", apiRouter)
+app.use("/api/labs", labsRouter)
 
 export default app

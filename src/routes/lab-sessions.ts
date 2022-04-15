@@ -70,7 +70,7 @@ router.post("/end-experiment-session", async (req, res) => {
   }
 })
 
-router.get("/lab-sessions/:id", async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params
     if (id) {
@@ -86,7 +86,7 @@ router.get("/lab-sessions/:id", async (req, res) => {
   }
 })
 
-router.put("/lab-sessions/:id", async (req, res) => {
+router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params
     console.log(id);
@@ -105,7 +105,7 @@ router.put("/lab-sessions/:id", async (req, res) => {
   }
 })
 
-router.get("/lab-sessions", async (req: Request, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   const { expId, active, labId } = req.query
   let query = expSessionsRef.where('uid', '==', req.auth?.uid);
   if (active) {
@@ -125,7 +125,7 @@ router.get("/lab-sessions", async (req: Request, res: Response) => {
   }
 })
 
-router.post("/lab-sessions", async (req, res, next) => {
+router.post("/", async (req, res, next) => {
   try {
 
     const { expId, labId } = req.body

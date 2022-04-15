@@ -1,9 +1,8 @@
 import { Router } from "express"
 var router = Router()
+import apiRouter from './lab-sessions'
+import usersRouter from './users'
 
-/* GET home page. */
-router.get("/", function (req, res, next) {
-  res.render("index", { title: "Express" })
-})
+router.all('/api', apiRouter, usersRouter)
 
 export default router

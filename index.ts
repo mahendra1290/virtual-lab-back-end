@@ -1,6 +1,7 @@
 import app from "./src/app"
 var debug = require("debug")("virtual-lab-backend:server")
 import { createServer } from "http"
+import socket from "./src/socket"
 
 /**
  * Get port from environment and store in Express.
@@ -14,6 +15,8 @@ app.set("port", port)
  */
 
 var server = createServer(app)
+
+socket.setup(server)
 
 /**
  * Listen on provided port, on all network interfaces.

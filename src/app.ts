@@ -8,6 +8,7 @@ import './fireabase'
 import apiRouter from "./routes/lab-sessions"
 import usersRouter from "./routes/users"
 import labsRouter from "./routes/labs"
+import codeRunnerRouter from "./routes/code"
 const app = express()
 
 const corsOptions = {
@@ -23,5 +24,6 @@ app.use(cookieParser())
 app.use("/api/users", usersRouter)
 app.use("/api/lab-sessions", apiRouter)
 app.use("/api/labs", labsRouter)
+app.use("/api/code", codeRunnerRouter)
 
 export default app

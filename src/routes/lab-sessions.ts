@@ -127,7 +127,6 @@ router.get("/", async (req: Request, res: Response) => {
 
 router.post("/", async (req, res, next) => {
   try {
-
     const { expId, labId } = req.body
     if (!expId || !labId) {
       res.status(StatusCodes.BAD_REQUEST).send({
@@ -144,7 +143,6 @@ router.post("/", async (req, res, next) => {
       return
     }
     if (!oldSessionActive) {
-
       const id = nanoid()
       if (expSessionsRef.doc(id)) {
         const docRef = await expSessionsRef.doc(id).set({

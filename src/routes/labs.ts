@@ -5,6 +5,7 @@ import { nanoid } from "nanoid"
 import { ReasonPhrases, StatusCodes, getReasonPhrase, getStatusCode } from "http-status-codes"
 import { isAuthenticated } from "../middlewares/auth"
 import { db } from "../fireabase"
+import { LAB_JOIN_LINK_EXPIRED, LAB_NOT_FOUND } from "../errors/labErrors"
 
 const labCollectionRef = db.collection("labs")
 
@@ -17,7 +18,7 @@ router.get("/:labId/lab-joining-links", async (req: Request, res: Response) => {
     const labLink = lab.data()?.joiningLink
     res.status(StatusCodes.ACCEPTED).json(labLink)
   } else {
-    res.status(StatusCodes.BAD_REQUEST).json({ code: 'Lab not found', message: 'Lab not found' })
+    res.status(StatusCodes.BAD_REQUEST).json(LAB_NOT_FOUND)
   }
 })
 
@@ -32,20 +33,19 @@ router.post("/:labId/lab-joining-links", async (req: Request, res: Response) => 
     const lab = await labRef.get()
     const code = nanoid(10)
     const link = `join-lab?code=${code}`
+
     if (!lab.exists) {
-      res.status(StatusCodes.BAD_REQUEST).json({
-        code: 'Lab not found',
-        message: 'Lab not found'
-      })
+      res.status(StatusCodes.BAD_REQUEST).json(LAB_NOT_FOUND)
     } else {
-      await labRef.update({
+      const data = {
         joiningLink: {
           url: link,
           code,
-          expiryTimestamp: expiryDate ? Timestamp.fromDate(new Date(expiryDate)) : null
+          expiryTimestamp: expiryDate ? Timestamp.fromMillis(expiryDate.seconds * 1000) : null
         }
-      })
-      res.status(StatusCodes.CREATED).json({ link })
+      }
+      await labRef.update(data)
+      res.status(StatusCodes.CREATED).json(data)
     }
   } catch (err: any) {
     console.log(err);
@@ -62,11 +62,18 @@ router.post('/students', async (req: Request, res: Response) => {
   try {
     const query = labCollectionRef.where('joiningLink.code', '==', code)
     const queryRes = await query.get()
-    console.log(queryRes.docs);
 
     if (!queryRes.empty) {
       const labRef = queryRes.docs.at(0)?.ref
       const labData = queryRes.docs.at(0)?.data()
+      const linkExpiryDate = labData?.joiningLink.expiryTimestamp
+      const currentDate = Timestamp.now();
+      console.log(linkExpiryDate, currentDate);
+
+      if (currentDate > linkExpiryDate) {
+        res.status(StatusCodes.BAD_REQUEST).json(LAB_JOIN_LINK_EXPIRED)
+        return
+      }
       const labStudents = labData?.students?.filter((student: any) => student.uid === uid) || []
       if (labStudents.length == 0) {
         await labRef?.update({
@@ -79,7 +86,7 @@ router.post('/students', async (req: Request, res: Response) => {
         res.status(StatusCodes.ACCEPTED).json({ labId: labData?.id })
       }
     } else {
-      res.status(StatusCodes.BAD_REQUEST).json({ code: 'lab not found', message: 'lab not found' })
+      res.status(StatusCodes.BAD_REQUEST).json(LAB_NOT_FOUND)
     }
   } catch (err) {
     console.log(err);

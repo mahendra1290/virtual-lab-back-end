@@ -1,0 +1,1 @@
+python: can't open file '/source/main.py < /inputs/input.txt': [Errno 2] No such file or directory

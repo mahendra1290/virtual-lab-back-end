@@ -8,17 +8,19 @@ import { db } from "../fireabase"
 
 
 const expSessionsRef = db.collection("lab-sessions")
+const labsRef = db.collection("labs")
+const expRef = (labId: string) => db.collection(`labs/${labId}/experiments`)
 
-const checkActiveLabSessionExists = async (labId: string, expId: string) => {
+const getActiveLabSession = async (labId: string, expId: string) => {
   const query = expSessionsRef.where("expId", "==", expId).where("labId", "==", labId)
   const docSnap = await query.get()
   if (docSnap && docSnap.docs && !docSnap.empty) {
     const sessionDoc = docSnap.docs.at(0)?.data()
     if (sessionDoc?.active) {
-      return true
+      return sessionDoc
     }
   }
-  return false
+  return null
 }
 
 router.use(isAuthenticated)
@@ -76,10 +78,21 @@ router.get("/:id", async (req, res) => {
     if (id) {
       const docSnap = await expSessionsRef.doc(id).get()
       if (docSnap.exists) {
-        res.status(StatusCodes.ACCEPTED).json(docSnap.data())
+        const data = docSnap.data() as any
+        const labId = data.labId;
+        const expId = data.expId;
+        const labSnap = labsRef.doc(labId).get()
+        const expSnap = expRef(labId).doc(expId).get()
+        const [labData, expData] = await Promise.all([labSnap, expSnap])
+        res.status(StatusCodes.ACCEPTED).json({
+          ...data,
+          lab: labData.data(),
+          exp: expData.data()
+        })
       }
+    } else {
+      res.status(StatusCodes.NOT_FOUND).json({ error: "Lab session not found" })
     }
-    res.status(StatusCodes.NOT_FOUND).json({ error: "Lab session not found" })
   } catch (err: any) {
     console.log(err)
     res.status(StatusCodes.BAD_REQUEST).json({ error: "Something went wrong", message: err.message })
@@ -134,11 +147,12 @@ router.post("/", async (req, res, next) => {
         message: "ExperimentId or LabId not provided",
       })
     }
-    const oldSessionActive = await checkActiveLabSessionExists(labId, expId)
+    const oldSessionActive = await getActiveLabSession(labId, expId)
     if (oldSessionActive) {
       res.status(StatusCodes.BAD_REQUEST).send({
         error: "active lab session exists for this lab",
         message: "Active lab session already present",
+        sessionId: oldSessionActive.id
       })
       return
     }

@@ -1,0 +1,4 @@
+  File "/source/main.py", line 1
+    print("hello nai)
+          ^
+SyntaxError: unterminated string literal (detected at line 1)

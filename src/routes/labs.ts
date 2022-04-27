@@ -11,6 +11,20 @@ const labCollectionRef = db.collection("labs")
 
 router.use(isAuthenticated)
 
+router.get("/", async (req: Request, res: Response) => {
+  const { studentUid } = req.query
+  if (studentUid) {
+    const pubLabsPromise = labCollectionRef.where('visibility', '==', 'public').get()
+    const joinedLabsPromise = labCollectionRef.where('studentUids', 'array-contains', studentUid).get()
+    const [pubLabs, joinedLabs] = await Promise.all([pubLabsPromise, joinedLabsPromise])
+    const allLabs = [...pubLabs.docs, ...joinedLabs.docs]
+    res.status(StatusCodes.ACCEPTED).json({ labs: allLabs.map(lab => ({ id: lab.id, ...lab.data() })) })
+  } else {
+    const allLabs = (await labCollectionRef.get()).docs.map(lab => lab.data())
+    res.status(StatusCodes.ACCEPTED).json({ labs: allLabs })
+  }
+})
+
 router.get("/:labId/lab-joining-links", async (req: Request, res: Response) => {
   const { labId } = req.params;
   const lab = await db.collection('labs').doc(labId).get()
@@ -77,6 +91,7 @@ router.post('/students', async (req: Request, res: Response) => {
       const labStudents = labData?.students?.filter((student: any) => student.uid === uid) || []
       if (labStudents.length == 0) {
         await labRef?.update({
+          studentUids: FieldValue.arrayUnion(uid),
           students: FieldValue.arrayUnion({
             uid, email, name, joinedAt: Timestamp.now()
           })

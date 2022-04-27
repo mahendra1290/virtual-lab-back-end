@@ -1,4 +1,0 @@
-  File "/source/main.py", line 1
-    print("hello nai";
-                     ^
-SyntaxError: invalid syntax

@@ -10,7 +10,14 @@ const notificationsRef = db.collection("notifications")
 
 router.use(isAuthenticated)
 
-router.post("/", async (req: Request, res: Response) => { })
+router.post("/lab-invite", async (req: Request, res: Response) => {
+  const { studentUid } = req.body;
+
+})
+
+router.post("/lab-session-start", async (req: Request, res: Response) => {
+  const { studentUid } = req.body;
+})
 
 
 export default router

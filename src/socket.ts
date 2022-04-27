@@ -1,7 +1,9 @@
 import { Server, Socket } from "socket.io";
-
+import { joinLabSession, leaveLabSession } from "./lab-sessions-manager";
 
 const codeStudentMap = new Map<string, string>();
+
+const sessionStudentMap = new Map<string, string>();
 
 const uidSocketIdMap = new Map<string, string>();
 
@@ -12,11 +14,17 @@ const module = (function () {
   const setup = (server: any) => {
     io = new Server(server, {
       cors: {
-        origin: ['http://localhost:3000']
+        origin: '*'
       }
     })
     io.on('connection', (socket: Socket) => {
       console.log('connected');
+
+      socket.on('join-lab-session', (data) => {
+        sessionStudentMap.set(data?.student?.uid || '', data?.labSessionId)
+        joinLabSession(data?.student, data?.labSessionId)
+      })
+
 
       uidSocketIdMap.set(socket.handshake.auth.uid, socket.id)
       socket.on('save-code', (data) => {
@@ -33,6 +41,10 @@ const module = (function () {
       socket.on('disconnect', () => {
         const uid = socket.handshake.auth.uid
         uidSocketIdMap.delete(uid)
+        const labSessionId = sessionStudentMap.get(uid)
+        if (uid && labSessionId) {
+          leaveLabSession(uid, labSessionId)
+        }
       })
       socket.on('view-student', (studentUid) => {
         teacherStudentMap.set(studentUid, socket)

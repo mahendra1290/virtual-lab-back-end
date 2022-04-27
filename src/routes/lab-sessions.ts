@@ -119,6 +119,52 @@ router.put("/:id", async (req, res) => {
   }
 })
 
+// router.post("/:id/join", async (req, res) => {
+//   try {
+//     const { id } = req.params
+//     if (!id) {
+//       res.status(StatusCodes.BAD_REQUEST).json({ error: 'id not provided' })
+//     }
+//     const docSnap = await expSessionsRef.doc(id).get()
+//     if (docSnap.exists) {
+//       // req.body
+//       // await expSessionsRef.doc(id).set({ ...docSnap.data(), active: false, endedAt: Timestamp.now() }, { merge: true })
+//       // const doc = (await expSessionsRef.doc(id).get()).data()
+//       // console.log(doc, 'edned');
+
+//       res.status(StatusCodes.ACCEPTED).json(doc)
+//     } else {
+//       res.status(StatusCodes.NOT_FOUND).json({ error: 'lab session not found' })
+//     }
+//   } catch (err: any) {
+//     console.log(err)
+//     res.status(StatusCodes.BAD_REQUEST).json({ message: err.message })
+//   }
+// })
+
+// router.post("/:id/leave", async (req, res) => {
+//   try {
+//     const { id } = req.params
+//     if (!id) {
+//       res.status(StatusCodes.BAD_REQUEST).json({ error: 'id not provided' })
+//     }
+//     const docSnap = await expSessionsRef.doc(id).get()
+//     if (docSnap.exists) {
+//       // req.body
+//       // await expSessionsRef.doc(id).set({ ...docSnap.data(), active: false, endedAt: Timestamp.now() }, { merge: true })
+//       // const doc = (await expSessionsRef.doc(id).get()).data()
+//       // console.log(doc, 'edned');
+
+//       res.status(StatusCodes.ACCEPTED).json(doc)
+//     } else {
+//       res.status(StatusCodes.NOT_FOUND).json({ error: 'lab session not found' })
+//     }
+//   } catch (err: any) {
+//     console.log(err)
+//     res.status(StatusCodes.BAD_REQUEST).json({ message: err.message })
+//   }
+// })
+
 router.post("/:id/end", async (req, res) => {
   try {
     const { id } = req.params

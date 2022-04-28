@@ -31,11 +31,12 @@ router.post('/:id', async (req: Request, res: Response) => {
       promises.push(auth.setCustomUserClaims(uid, claim))
 
       promises.push(usersRef.doc(uid).set({
+        uid: user.uid,
         email: user.email,
         role,
         name: displayName,
         photoURL: user.photoURL || ''
-      }))
+      }, { merge: true }))
       try {
         await Promise.all(promises)
         res.status(StatusCodes.CREATED).send(ReasonPhrases.CREATED)

@@ -5,6 +5,7 @@ import { nanoid } from "nanoid"
 import { ReasonPhrases, StatusCodes, getReasonPhrase, getStatusCode } from "http-status-codes"
 import { isAuthenticated } from "../middlewares/auth"
 import { db } from "../fireabase"
+import { sendLabSessionStartNotification } from "../utils"
 
 
 const expSessionsRef = db.collection("lab-sessions")
@@ -233,6 +234,8 @@ router.post("/", async (req, res, next) => {
           uid: req.auth?.uid,
           startedAt: Timestamp.fromDate(new Date())
         })
+        const sessionUrl = `/s/lab-session/${id}`
+        sendLabSessionStartNotification(labId, sessionUrl)
         const docSnap = await expSessionsRef.doc(id).get()
         res.status(StatusCodes.CREATED).send(docSnap.data())
       }

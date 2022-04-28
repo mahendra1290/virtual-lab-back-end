@@ -9,37 +9,47 @@ import { db } from "../fireabase"
 
 const notificationsRef = (uid: string) => db.collection(`notifications-${uid}`)
 
+const expSessionsRef = db.collection("lab-sessions")
+
 const usersRef = db.collection(`users`)
+
+const labsRef = db.collection(`labs`)
 
 router.use(isAuthenticated)
 
-router.post("/lab-invite", async (req: Request, res: Response) => {
-  const { emails, labJoinUrl } = req.body;
+async function sendNotifications(uids: string[], notification: FireNotification) {
+  const promises: any = []
+  uids.forEach(uid => {
+    const noteRef = notificationsRef(uid)
+    promises.push(noteRef.add(notification))
+  })
+  return Promise.all(promises);
+}
 
+router.post("/lab-invite", async (req: Request, res: Response) => {
+  const { emails, labJoinUrl, labName } = req.body;
 
   const data = await usersRef.where('email', 'in', emails).get()
   if (!data.empty) {
-    const uids = data.docs.map(doc => doc.data().uid)
-    const promises: any = []
-    console.log(uids);
+    const uids = data.docs.map(doc => doc.id)
+    if (uids.length == 0) {
+      res.status(StatusCodes.NO_CONTENT).send()
+      return
+    }
 
-    uids.forEach(uid => {
-      const noteRef = notificationsRef(uid)
-      const notification: FireNotification = {
-        title: 'Join Lab Invite',
-        description: 'Join lab by clicking on this link',
-        createdAt: Timestamp.now(),
-        actions: [
-          {
-            name: 'Join',
-            action: labJoinUrl
-          }
-        ]
-      }
-      promises.push(noteRef.add(notification))
-    })
-    await Promise.all(promises);
-    res.status(StatusCodes.CREATED).json({ emails, labJoinUrl })
+    const notification: FireNotification = {
+      title: 'Lab Invite',
+      description: `You're invited to join ${labName}.`,
+      createdAt: Timestamp.now(),
+      actions: [
+        {
+          name: 'Join',
+          action: labJoinUrl
+        }
+      ]
+    }
+    await sendNotifications(uids, notification);
+    res.status(StatusCodes.NO_CONTENT).json({ emails, labJoinUrl })
   } else {
     res.status(StatusCodes.BAD_REQUEST).json({ error: 'bad reqest' })
   }
@@ -47,21 +57,35 @@ router.post("/lab-invite", async (req: Request, res: Response) => {
 })
 
 router.post("/lab-session-start", async (req: Request, res: Response) => {
-  const { studentUid, sessionUrl } = req.body;
-  const noteRef = notificationsRef(studentUid)
-  const notification: FireNotification = {
-    title: 'Lab Session started',
-    description: 'Your teacher has started new lab session.',
-    createdAt: Timestamp.now(),
-    actions: [
-      {
-        name: 'Join',
-        action: sessionUrl
+  const { sessionUrl, labId } = req.body;
+  if (!sessionUrl || !labId) {
+    res.status(StatusCodes.BAD_REQUEST).json({ error: 'session id not provided' })
+  } else {
+    try {
+      const docSnap = await labsRef.doc(labId).get()
+      if (docSnap.exists) {
+        const data = docSnap.data() as any
+        const students = data.studentUids || []
+        const notification: FireNotification = {
+          title: 'Lab Session started',
+          description: 'Your teacher has started new lab session.',
+          createdAt: Timestamp.now(),
+          actions: [
+            {
+              name: 'Join',
+              action: sessionUrl
+            }
+          ]
+        }
+        await sendNotifications(students, notification)
+        res.status(StatusCodes.NO_CONTENT).send()
+      } else {
+        res.status(StatusCodes.NOT_FOUND).json({ error: "Lab session not found" })
       }
-    ]
+    } catch (err: any) {
+      res.status(StatusCodes.BAD_REQUEST).json({ error: "Something went wrong", message: err.message })
+    }
   }
-  await noteRef.add(notification)
-  res.status(StatusCodes.CREATED).json(notification)
 })
 
 

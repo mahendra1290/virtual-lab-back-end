@@ -82,9 +82,8 @@ router.post('/students', async (req: Request, res: Response) => {
       const labData = queryRes.docs.at(0)?.data()
       const linkExpiryDate = labData?.joiningLink.expiryTimestamp
       const currentDate = Timestamp.now();
-      console.log(linkExpiryDate, currentDate);
 
-      if (currentDate > linkExpiryDate) {
+      if (linkExpiryDate && currentDate > linkExpiryDate) {
         res.status(StatusCodes.BAD_REQUEST).json(LAB_JOIN_LINK_EXPIRED)
         return
       }

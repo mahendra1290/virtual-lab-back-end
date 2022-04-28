@@ -67,6 +67,7 @@ router.post("/:labId/lab-joining-links", async (req: Request, res: Response) => 
   }
 })
 
+
 /**
  * Route for joining lab
  */

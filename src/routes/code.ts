@@ -21,13 +21,14 @@ const sourceCodePath = path.join(__dirname, '..', '..', 'source-codes')
 
 const expInputsPath = path.join(__dirname, '..', '..', 'exp-inputs')
 
+const codeRunScripts = path.join(__dirname, '..', '..', 'code-run-scripts')
+
 const pythonSourceCodePath = path.join(sourceCodePath, 'python')
 
 const cppSourceCodePath = path.join(sourceCodePath, 'cpp')
 
 async function runCppCode(userUid: string, code: string) {
-  console.log(userUid, code);
-
+  let workingDir = ''
   try {
     const userSourceCodePath = path.join(cppSourceCodePath, userUid);
     if (!fs.existsSync(userSourceCodePath)) {
@@ -37,9 +38,12 @@ async function runCppCode(userUid: string, code: string) {
     await mkdir(path.join(userSourceCodePath, dirName))
     const filename = 'main.cpp'
     await writeFile(path.join(userSourceCodePath, dirName, filename), code, { encoding: 'utf-8' })
+    workingDir = path.join(userSourceCodePath, dirName)
+
   } catch (err: any) {
     console.log(err)
   }
+  return workingDir
 }
 
 async function runPythonCode(userUid: string, code: string) {
@@ -81,7 +85,7 @@ async function createCodeFile(userUid: string, code: string, extension: string) 
 }
 
 async function runCppCodeInDocker(userUid: string, code: string) {
-  const workingDir = await runPythonCode(userUid, code);
+  const workingDir = await runCppCode(userUid, code);
   const outputFile = path.join(workingDir, 'output.txt')
   const errorFile = path.join(workingDir, 'error.txt')
   writeFile(outputFile, '', { encoding: 'utf-8' })
@@ -89,22 +93,17 @@ async function runCppCodeInDocker(userUid: string, code: string) {
   const outputStream = fs.createWriteStream(outputFile, 'utf-8')
   const errorStream = fs.createWriteStream(errorFile, 'utf-8')
   return new Promise((resolve, reject) => {
-    // docker.createContainer({
-    //   Image: 'python:3.10-alpine',
-    //   name: userUid,
-    //   HostConfig: {
-    //     Binds: [`${workingDir}:/source`, `${expInputsPath}:/inputs`]
-    //   },
-    // })
-    docker.run('python:3.10-alpine', [
-      'python',
-      '/source/main.py',
+    docker.run('frolvlad/alpine-gxx', [
+      '/bin/sh',
+      '/scripts/run-cpp.sh'
     ], [outputStream, errorStream], {
       Tty: false,
-      name: userUid,
+      name: 'cpp' + userUid,
       HostConfig: {
-        Binds: [`${workingDir}:/source`, `${expInputsPath}:/inputs`]
+        Binds: [`${workingDir}:/source`, `${expInputsPath}:/inputs`, `${codeRunScripts}:/scripts`]
       },
+    }, {
+
     }).then((data) => {
       const cont = data[1];
       return cont.remove();
@@ -131,24 +130,22 @@ async function runPythonCodeInDocker(userUid: string, code: string) {
   const outputStream = fs.createWriteStream(outputFile, 'utf-8')
   const errorStream = fs.createWriteStream(errorFile, 'utf-8')
   return new Promise((resolve, reject) => {
-    // docker.createContainer({
-    //   Image: 'python:3.10-alpine',
-    //   name: userUid,
-    //   HostConfig: {
-    //     Binds: [`${workingDir}:/source`, `${expInputsPath}:/inputs`]
-    //   },
-    // })
+
     docker.run('python:3.10-alpine', [
-      'python',
-      '/source/main.py',
+      '/bin/sh',
+      '/scripts/run-python.sh'
     ], [outputStream, errorStream], {
       Tty: false,
       name: userUid,
       HostConfig: {
-        Binds: [`${workingDir}:/source`, `${expInputsPath}:/inputs`]
+        Binds: [`${workingDir}:/source`, `${expInputsPath}:/inputs`, `${codeRunScripts}:/scripts`]
       },
+    }, {
+
     }).then((data) => {
       const cont = data[1];
+      console.log(data);
+
       return cont.remove();
     }).then(async data => {
       const outputPromise = readFile(outputFile, { encoding: 'utf-8' })
@@ -242,8 +239,8 @@ router.post('/run/python', async (req: Request, res: Response) => {
 router.post('/run/cpp', async (req: Request, res: Response) => {
   const { code } = req.body;
   const { uid } = req.auth || { uid: '' };
-  runCppCode(uid, code);
-  res.status(StatusCodes.ACCEPTED).json({ out: 'result' })
+  const result = await runCppCodeInDocker(uid, code);
+  res.status(StatusCodes.ACCEPTED).json(result || {})
 })
 
 

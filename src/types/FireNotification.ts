@@ -1,11 +1,11 @@
 import { Timestamp } from "firebase-admin/firestore";
 
-interface FireNotificationAction {
+export interface FireNotificationAction {
   name: string,
   action: string,
 }
 
-interface FireNotification {
+export interface FireNotification {
   title: string,
   description: string,
   createdAt: Timestamp,

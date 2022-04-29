@@ -38,7 +38,7 @@ jspm_packages/
 codes/
 exp-inputs/
 source-codes/
-
+test-cases/
 # Typescript v1 declaration files
 typings/
 

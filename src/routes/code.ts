@@ -9,7 +9,7 @@ import { isAuthenticated } from "../middlewares/auth"
 import { db } from "../fireabase"
 import { exec } from "child_process"
 import Docker from "dockerode"
-import { mkdir, readFile, writeFile } from "fs/promises"
+import { mkdir, readFile, rm, rmdir, writeFile, } from "fs/promises"
 
 const docker = new Docker({ socketPath: '/var/run/docker.sock' })
 
@@ -23,9 +23,51 @@ const expInputsPath = path.join(__dirname, '..', '..', 'exp-inputs')
 
 const codeRunScripts = path.join(__dirname, '..', '..', 'code-run-scripts')
 
+const testCasesPath = path.join(__dirname, '..', '..', 'test-cases')
+
+
 const pythonSourceCodePath = path.join(sourceCodePath, 'python')
 
 const cppSourceCodePath = path.join(sourceCodePath, 'cpp')
+
+interface TestCase {
+  totalScore: number,
+  inputs: { name: string, content: string }[]
+  outputs: { name: string, content: string }[]
+}
+
+async function loadTestCases(expId: string) {
+  const testCasesRef = db.doc(`test-cases/${expId}`)
+  const testCaseSnap = await testCasesRef.get()
+  try {
+    if (testCaseSnap.exists) {
+      const testCaseData = testCaseSnap.data() as TestCase
+      const testCasePath = path.join(testCasesPath, expId)
+      await rm(testCasePath, { recursive: true })
+      const exist = fs.existsSync(testCasePath)
+      const inpPath = path.join(testCasePath, 'inputs')
+      const outPath = path.join(testCasePath, 'outputs')
+      if (!exist) {
+        await mkdir(inpPath, { recursive: true })
+        await mkdir(outPath, { recursive: true })
+      }
+      const promises: Promise<any>[] = []
+      testCaseData.inputs.forEach(inp => {
+        promises.push(writeFile(path.join(inpPath, inp.name), inp.content, 'utf-8'))
+      })
+      testCaseData.outputs.forEach(out => {
+        promises.push(writeFile(path.join(outPath, out.name), out.content, 'utf-8'))
+      })
+      await Promise.all(promises)
+      return testCasePath
+    }
+  }
+  catch (err) {
+    console.log(err);
+
+    return ''
+  }
+}
 
 async function runCppCode(userUid: string, code: string) {
   let workingDir = ''
@@ -84,7 +126,8 @@ async function createCodeFile(userUid: string, code: string, extension: string) 
   })
 }
 
-async function runCppCodeInDocker(userUid: string, code: string) {
+async function runCppCodeInDocker(userUid: string, code: string, expId: string) {
+  const testCasesPath = await loadTestCases(expId)
   const workingDir = await runCppCode(userUid, code);
   const outputFile = path.join(workingDir, 'output.txt')
   const errorFile = path.join(workingDir, 'error.txt')
@@ -100,7 +143,7 @@ async function runCppCodeInDocker(userUid: string, code: string) {
       Tty: false,
       name: 'cpp' + userUid,
       HostConfig: {
-        Binds: [`${workingDir}:/source`, `${expInputsPath}:/inputs`, `${codeRunScripts}:/scripts`]
+        Binds: [`${workingDir}:/source`, `${testCasesPath}:/test-cases`, `${codeRunScripts}:/scripts`]
       },
     }, {
 
@@ -121,7 +164,8 @@ async function runCppCodeInDocker(userUid: string, code: string) {
 }
 
 
-async function runPythonCodeInDocker(userUid: string, code: string) {
+async function runPythonCodeInDocker(userUid: string, code: string, expId: string) {
+  const testCasesPath = await loadTestCases(expId)
   const workingDir = await runPythonCode(userUid, code);
   const outputFile = path.join(workingDir, 'output.txt')
   const errorFile = path.join(workingDir, 'error.txt')
@@ -130,7 +174,6 @@ async function runPythonCodeInDocker(userUid: string, code: string) {
   const outputStream = fs.createWriteStream(outputFile, 'utf-8')
   const errorStream = fs.createWriteStream(errorFile, 'utf-8')
   return new Promise((resolve, reject) => {
-
     docker.run('python:3.10-alpine', [
       '/bin/sh',
       '/scripts/run-python.sh'
@@ -138,7 +181,7 @@ async function runPythonCodeInDocker(userUid: string, code: string) {
       Tty: false,
       name: userUid,
       HostConfig: {
-        Binds: [`${workingDir}:/source`, `${expInputsPath}:/inputs`, `${codeRunScripts}:/scripts`]
+        Binds: [`${workingDir}:/source`, `${testCasesPath}:/test-cases`, `${codeRunScripts}:/scripts`]
       },
     }, {
 
@@ -229,17 +272,17 @@ router.post('/run/js', async (req: Request, res: Response) => {
 })
 
 router.post('/run/python', async (req: Request, res: Response) => {
-  const { code } = req.body;
+  const { code, expId } = req.body;
   const { uid } = req.auth || { uid: '' };
-  const result = await runPythonCodeInDocker(uid, code);
+  const result = await runPythonCodeInDocker(uid, code, expId);
   res.status(StatusCodes.ACCEPTED).json(result || {})
 })
 
 
 router.post('/run/cpp', async (req: Request, res: Response) => {
-  const { code } = req.body;
+  const { code, expId } = req.body;
   const { uid } = req.auth || { uid: '' };
-  const result = await runCppCodeInDocker(uid, code);
+  const result = await runCppCodeInDocker(uid, code, expId);
   res.status(StatusCodes.ACCEPTED).json(result || {})
 })
 

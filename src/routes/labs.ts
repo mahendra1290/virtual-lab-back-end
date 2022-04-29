@@ -6,6 +6,7 @@ import { ReasonPhrases, StatusCodes, getReasonPhrase, getStatusCode } from "http
 import { isAuthenticated } from "../middlewares/auth"
 import { db } from "../fireabase"
 import { LAB_JOIN_LINK_EXPIRED, LAB_NOT_FOUND } from "../errors/labErrors"
+import * as _ from 'lodash'
 
 const labCollectionRef = db.collection("labs")
 
@@ -17,7 +18,7 @@ router.get("/", async (req: Request, res: Response) => {
     const pubLabsPromise = labCollectionRef.where('visibility', '==', 'public').get()
     const joinedLabsPromise = labCollectionRef.where('studentUids', 'array-contains', studentUid).get()
     const [pubLabs, joinedLabs] = await Promise.all([pubLabsPromise, joinedLabsPromise])
-    const allLabs = [...pubLabs.docs, ...joinedLabs.docs]
+    const allLabs = _.uniqBy([...pubLabs.docs, ...joinedLabs.docs], (item) => item.id)
     res.status(StatusCodes.ACCEPTED).json({ labs: allLabs.map(lab => ({ id: lab.id, ...lab.data() })) })
   } else {
     const allLabs = (await labCollectionRef.get()).docs.map(lab => lab.data())

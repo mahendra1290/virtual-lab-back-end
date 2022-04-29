@@ -10,7 +10,7 @@ import { sendLabSessionStartNotification } from "../utils"
 
 const expSessionsRef = db.collection("lab-sessions")
 const labsRef = db.collection("labs")
-const expRef = (labId: string) => db.collection(`labs/${labId}/experiments`)
+const expRef = db.collection(`experiments`)
 
 const getActiveLabSession = async (labId: string, expId: string) => {
   const query = expSessionsRef.where("expId", "==", expId).where("labId", "==", labId)
@@ -85,7 +85,7 @@ router.get("/:id", async (req, res) => {
       const labId = data.labId;
       const expId = data.expId;
       const labSnap = labsRef.doc(labId).get()
-      const expSnap = expRef(labId).doc(expId).get()
+      const expSnap = expRef.doc(expId).get()
       const [labData, expData] = await Promise.all([labSnap, expSnap])
       res.status(StatusCodes.ACCEPTED).json({
         ...data,
@@ -232,7 +232,7 @@ router.post("/", async (req, res, next) => {
           expId: expId,
           labId: labId,
           uid: req.auth?.uid,
-          startedAt: Timestamp.fromDate(new Date())
+          startedAt: Timestamp.now()
         })
         const sessionUrl = `/s/lab-session/${id}`
         sendLabSessionStartNotification(labId, sessionUrl)

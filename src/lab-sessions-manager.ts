@@ -1,4 +1,5 @@
-import { FieldValue } from 'firebase-admin/firestore';
+import { nanoid } from 'nanoid';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { db } from "./fireabase"
 
 export interface Student {
@@ -14,6 +15,8 @@ interface SessionStudentDoc {
 }
 
 const sessionStudents = db.collection("session-students")
+
+const studentWorkCollection = (uid: string) => db.collection(`student-work-${uid}`)
 
 export async function joinLabSession(student: Student, labSessionId: string) {
   if (!student || !labSessionId) {
@@ -74,4 +77,19 @@ export async function leaveLabSession(studentUid: string, labSessionId: string) 
     students: studCopy,
     studentsUid: FieldValue.arrayRemove(studentUid)
   }, { merge: true })
+}
+
+export async function saveStudentSubmission(studentWork: StudentWork) {
+  const colRef = studentWorkCollection(studentWork.uid)
+  const docRef = colRef.doc()
+  try {
+    const res = await docRef.set({
+      id: docRef.id,
+      ...studentWork
+    }, { merge: true })
+
+  } catch (err: any) {
+    console.log(err);
+
+  }
 }

@@ -2,7 +2,6 @@ import { Router, Request, Response } from "express"
 import * as fs from 'fs'
 import * as path from 'path'
 const router = Router()
-import { FieldValue, getFirestore, Query, Timestamp } from "firebase-admin/firestore"
 import { nanoid } from "nanoid"
 import { ReasonPhrases, StatusCodes, getReasonPhrase, getStatusCode } from "http-status-codes"
 import { isAuthenticated } from "../middlewares/auth"
@@ -10,30 +9,65 @@ import { db } from "../fireabase"
 import { exec } from "child_process"
 import Docker from "dockerode"
 import { mkdir, readFile, rm, rmdir, writeFile, } from "fs/promises"
+import { split } from "lodash"
+import { Timestamp } from "firebase-admin/firestore"
+import { saveStudentSubmission } from "../lab-sessions-manager"
 
 const docker = new Docker({ socketPath: '/var/run/docker.sock' })
 
 router.use(isAuthenticated)
 
 const absPath = path.join(__dirname, '..', '..', 'codes')
-
 const sourceCodePath = path.join(__dirname, '..', '..', 'source-codes')
-
 const expInputsPath = path.join(__dirname, '..', '..', 'exp-inputs')
-
 const codeRunScripts = path.join(__dirname, '..', '..', 'code-run-scripts')
-
 const testCasesPath = path.join(__dirname, '..', '..', 'test-cases')
-
-
+const testCasesDummyPath = path.join(testCasesPath, 'dummy')
 const pythonSourceCodePath = path.join(sourceCodePath, 'python')
-
 const cppSourceCodePath = path.join(sourceCodePath, 'cpp')
 
 interface TestCase {
   totalScore: number,
-  inputs: { name: string, content: string }[]
-  outputs: { name: string, content: string }[]
+  inputs: { name: string, content: string, score: number }[]
+  outputs: { name: string, content: string, score: number }[]
+}
+
+async function gradeRunResponse(expId: string, output: string) {
+  const testCasesRef = db.doc(`test-cases/${expId}`)
+  const testCaseSnap = await testCasesRef.get()
+  if (!testCaseSnap.exists) {
+    return null
+  }
+  const tData = testCaseSnap.data() as TestCase
+  console.log(testCaseSnap.data(), output);
+  const outputs = split(output, /output.*\n/).filter(val => val)
+  console.log(outputs);
+  let match = 0;
+  let score = 0;
+  const result: { testCase: number, score: number, correct: boolean }[] = []
+  tData.outputs.map((item, index) => {
+    const expectedOut = outputs.at(index) || ''
+    const normalizeScore = typeof item.score === 'string' ? Number.parseInt(item.score) : item.score
+    if (item.content === expectedOut) {
+      match += 1;
+      score += normalizeScore
+      result.push({ testCase: index + 1, score: normalizeScore, correct: true })
+    } else {
+      result.push({ testCase: index + 1, score: 0, correct: false })
+    }
+  })
+  let verdict = ''
+  let verdictCode = 0
+  if (match === tData.outputs.length) {
+    verdict = 'Correct'
+    verdictCode = 2
+  } else if (match > 0 && match < output.length) {
+    verdict = 'Partial Correct'
+    verdictCode = 1
+  } else {
+    verdict = 'Incorrect'
+  }
+  return { verdict, verdictCode, result, totalScore: score };
 }
 
 async function loadTestCases(expId: string) {
@@ -43,11 +77,14 @@ async function loadTestCases(expId: string) {
     if (testCaseSnap.exists) {
       const testCaseData = testCaseSnap.data() as TestCase
       const testCasePath = path.join(testCasesPath, expId)
-      await rm(testCasePath, { recursive: true })
       const exist = fs.existsSync(testCasePath)
       const inpPath = path.join(testCasePath, 'inputs')
       const outPath = path.join(testCasePath, 'outputs')
       if (!exist) {
+        await mkdir(inpPath, { recursive: true })
+        await mkdir(outPath, { recursive: true })
+      } else {
+        await rm(testCasePath, { recursive: true })
         await mkdir(inpPath, { recursive: true })
         await mkdir(outPath, { recursive: true })
       }
@@ -60,12 +97,13 @@ async function loadTestCases(expId: string) {
       })
       await Promise.all(promises)
       return testCasePath
+    } else {
+      return testCasesDummyPath
     }
   }
   catch (err) {
     console.log(err);
-
-    return ''
+    return testCasesDummyPath
   }
 }
 
@@ -135,10 +173,11 @@ async function runCppCodeInDocker(userUid: string, code: string, expId: string) 
   writeFile(errorFile, '', { encoding: 'utf-8' })
   const outputStream = fs.createWriteStream(outputFile, 'utf-8')
   const errorStream = fs.createWriteStream(errorFile, 'utf-8')
+  const script = testCasesPath === testCasesDummyPath ? '/scripts/run-cpp.sh' : '/scripts/run-cpp-with-inputs.sh'
   return new Promise((resolve, reject) => {
     docker.run('frolvlad/alpine-gxx', [
       '/bin/sh',
-      '/scripts/run-cpp.sh'
+      script
     ], [outputStream, errorStream], {
       Tty: false,
       name: 'cpp' + userUid,
@@ -154,7 +193,8 @@ async function runCppCodeInDocker(userUid: string, code: string, expId: string) 
       const outputPromise = readFile(outputFile, { encoding: 'utf-8' })
       const errorPromise = readFile(errorFile, { encoding: 'utf-8' })
       const [output, error] = await Promise.all([outputPromise, errorPromise])
-      resolve({ output, error })
+      const res = await gradeRunResponse(expId, output)
+      resolve({ output, error, graderResponse: res })
     }).catch((err) => {
       console.log("err", err);
       reject(err)
@@ -173,10 +213,11 @@ async function runPythonCodeInDocker(userUid: string, code: string, expId: strin
   writeFile(errorFile, '', { encoding: 'utf-8' })
   const outputStream = fs.createWriteStream(outputFile, 'utf-8')
   const errorStream = fs.createWriteStream(errorFile, 'utf-8')
+  const script = testCasesPath === testCasesDummyPath ? '/scripts/run-python.sh' : '/scripts/run-python-with-inputs.sh'
   return new Promise((resolve, reject) => {
     docker.run('python:3.10-alpine', [
       '/bin/sh',
-      '/scripts/run-python.sh'
+      script
     ], [outputStream, errorStream], {
       Tty: false,
       name: userUid,
@@ -187,14 +228,13 @@ async function runPythonCodeInDocker(userUid: string, code: string, expId: strin
 
     }).then((data) => {
       const cont = data[1];
-      console.log(data);
-
       return cont.remove();
     }).then(async data => {
       const outputPromise = readFile(outputFile, { encoding: 'utf-8' })
       const errorPromise = readFile(errorFile, { encoding: 'utf-8' })
       const [output, error] = await Promise.all([outputPromise, errorPromise])
-      resolve({ output, error })
+      const res = await gradeRunResponse(expId, output)
+      resolve({ output, error, graderResponse: res })
     }).catch((err) => {
       console.log("err", err);
       reject(err)
@@ -272,17 +312,39 @@ router.post('/run/js', async (req: Request, res: Response) => {
 })
 
 router.post('/run/python', async (req: Request, res: Response) => {
-  const { code, expId } = req.body;
+  const { code, expId, sessionId, labId } = req.body;
   const { uid } = req.auth || { uid: '' };
   const result = await runPythonCodeInDocker(uid, code, expId);
+  const studentWork: StudentWork = {
+    uid: uid,
+    expId: expId,
+    labId: labId,
+    sessionId: sessionId,
+    lang: 'python',
+    code: code,
+    runnedAt: Timestamp.now(),
+    graderResult: (result as any).graderResponse as GraderResult || null
+  }
+  saveStudentSubmission(studentWork)
   res.status(StatusCodes.ACCEPTED).json(result || {})
 })
 
 
 router.post('/run/cpp', async (req: Request, res: Response) => {
-  const { code, expId } = req.body;
+  const { code, expId, sessionId, labId } = req.body;
   const { uid } = req.auth || { uid: '' };
   const result = await runCppCodeInDocker(uid, code, expId);
+  const studentWork: StudentWork = {
+    uid: uid,
+    expId: expId,
+    labId: labId,
+    sessionId: sessionId,
+    lang: 'cpp',
+    code: code,
+    runnedAt: Timestamp.now(),
+    graderResult: (result as any).graderResponse as GraderResult || null
+  }
+  saveStudentSubmission(studentWork)
   res.status(StatusCodes.ACCEPTED).json(result || {})
 })
 

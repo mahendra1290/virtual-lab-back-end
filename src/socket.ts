@@ -1,7 +1,7 @@
 import { Server, Socket } from "socket.io";
 import { joinLabSession, leaveLabSession } from "./lab-sessions-manager";
 
-const codeStudentMap = new Map<string, string>();
+const codeStudentMap = new Map<string, { lang: string, code: string }>();
 
 const sessionStudentMap = new Map<string, string>();
 
@@ -29,9 +29,10 @@ const module = (function () {
       uidSocketIdMap.set(socket.handshake.auth.uid, socket.id)
       socket.on('save-code', (data) => {
         const uid = socket.handshake.auth.uid;
-        codeStudentMap.set(uid, data)
+        const { lang, code } = data
+        codeStudentMap.set(uid, { lang, code })
         if (teacherStudentMap.has(uid)) {
-          teacherStudentMap.get(uid)?.emit(`code-update-${uid}`, data)
+          teacherStudentMap.get(uid)?.emit(`code-update-${uid}`, { lang, code })
           // io?.in(teacherStudentMap.get(uid) || '').emit(`code-update-${uid}`, data)
         }
 

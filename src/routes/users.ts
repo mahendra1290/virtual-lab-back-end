@@ -20,7 +20,7 @@ router.post('/:id', async (req: Request, res: Response) => {
     const user = await auth.getUser(id)
     const { uid } = req.auth
     if (user) {
-      const promises = []
+      const promises: any[] = []
       promises.push(auth.updateUser(uid, {
         displayName,
       }))

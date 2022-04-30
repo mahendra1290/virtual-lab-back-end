@@ -9,7 +9,7 @@ import { db } from "../fireabase"
 import { exec } from "child_process"
 import Docker from "dockerode"
 import { mkdir, readFile, rm, rmdir, writeFile, } from "fs/promises"
-import { split } from "lodash"
+import { functions, split } from "lodash"
 import { Timestamp } from "firebase-admin/firestore"
 import { saveStudentSubmission } from "../lab-sessions-manager"
 
@@ -30,6 +30,20 @@ interface TestCase {
   totalScore: number,
   inputs: { name: string, content: string, score: number }[]
   outputs: { name: string, content: string, score: number }[]
+}
+
+async function creatSourceCodeDirectories() {
+  try {
+
+    if (!fs.existsSync(sourceCodePath)) {
+      await mkdir(sourceCodePath)
+      await mkdir(pythonSourceCodePath)
+      await mkdir(cppSourceCodePath)
+    }
+  } catch (err) {
+    console.log(err);
+
+  }
 }
 
 async function gradeRunResponse(expId: string, output: string) {
@@ -108,6 +122,7 @@ async function loadTestCases(expId: string) {
 }
 
 async function runCppCode(userUid: string, code: string) {
+  await creatSourceCodeDirectories()
   let workingDir = ''
   try {
     const userSourceCodePath = path.join(cppSourceCodePath, userUid);
@@ -129,6 +144,7 @@ async function runCppCode(userUid: string, code: string) {
 async function runPythonCode(userUid: string, code: string) {
   let workingDir = ''
   try {
+    await creatSourceCodeDirectories()
     const userSourceCodePath = path.join(pythonSourceCodePath, userUid);
     if (!fs.existsSync(userSourceCodePath)) {
       await mkdir(userSourceCodePath)

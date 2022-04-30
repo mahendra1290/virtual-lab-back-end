@@ -8,6 +8,8 @@ RUN npm install
 
 COPY . .
 
+RUN tsc
+
 EXPOSE 5000
 
-CMD [ "npm", "run", "dev" ]
+CMD [ "node", "build/index.js" ]

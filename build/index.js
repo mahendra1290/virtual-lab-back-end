@@ -3,9 +3,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var app_1 = __importDefault(require("./app"));
+var app_1 = __importDefault(require("./src/app"));
 var debug = require("debug")("virtual-lab-backend:server");
 var http_1 = require("http");
+var socket_1 = __importDefault(require("./src/socket"));
 /**
  * Get port from environment and store in Express.
  */
@@ -15,6 +16,7 @@ app_1.default.set("port", port);
  * Create HTTP server.
  */
 var server = http_1.createServer(app_1.default);
+socket_1.default.setup(server);
 /**
  * Listen on provided port, on all network interfaces.
  */

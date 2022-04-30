@@ -24,3 +24,18 @@ services:
       - nodejs
     networks:
       - app-network
+    command: certonly --webroot --webroot-path=/var/www/html --email mahendra.suthar.1290@gmail.com --agree-tos --no-eff-email --staging -d 159.65.148.48
+
+volumes:
+  certbot-etc:
+  certbot-var:
+  web-root:
+    driver: local
+    driver_opts:
+      type: none
+      device: /virtual-lab/virtual-lab-back-end
+      o: bind
+
+networks:
+  app-network:
+    driver: bridge

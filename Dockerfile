@@ -14,4 +14,4 @@ RUN tsc
 
 EXPOSE 5000
 
-CMD [ "node", "build/index.js" ]
+CMD [ "node", "./build/index.js" ]

@@ -30,6 +30,13 @@ services:
       - app-network
 
 volumes:
+  web-root:
+    driver: local
+    driver_opts:
+      type: none
+      device: /root/virtual-lab/virtual-lab-back-end
+      o: bind
+
   dhparam:
     driver: local
     driver_opts:

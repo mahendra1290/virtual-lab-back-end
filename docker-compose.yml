@@ -45,7 +45,14 @@ volumes:
     driver: local
     driver_opts:
       type: none
-      device: /virtual-lab/virtual-lab-back-end/dhparam
+      device: /virtual-lab/virtual-lab-back-end
+      o: bind
+
+  dhparam:
+    driver: local
+    driver_opts:
+      type: none
+      device: /virtual-lab/virtual-lab-back-end/dhparam/
       o: bind
 
 networks:

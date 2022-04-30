@@ -13,7 +13,7 @@ import notificationsRouter from "./routes/notifications"
 const app = express()
 
 const corsOptions = {
-  origin: "http://localhost:3000",
+  origin: ["http://localhost:3000", "https://virtul-lab-nit.web.app/"],
 }
 
 app.use(cors(corsOptions))

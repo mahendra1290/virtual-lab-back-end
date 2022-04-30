@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+source-codes
+test-cases
+build
+Dockerfile
+.dockerignore
+** /.git
+** /.gitignore
+** /.vscode
+README.md

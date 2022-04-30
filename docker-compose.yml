@@ -34,7 +34,7 @@ services:
       - ./web-root:/var/www/html
     depends_on:
       - webserver
-    command: certonly --webroot --webroot-path=/var/www/html --email mahendra.suthar.1290@gmail.com --agree-tos --no-eff-email --staging -d mahendrasuthar.engineer -d www.mahendrasuthar.engineer
+    command: certonly --webroot --webroot-path=/var/www/html --email mahendra.suthar.1290@gmail.com --agree-tos --no-eff-email --force-renewal -d mahendrasuthar.engineer -d www.mahendrasuthar.engineer
 volumes:
   certbot-etc:
   certbot-var:

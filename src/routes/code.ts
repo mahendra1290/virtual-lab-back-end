@@ -26,11 +26,13 @@ const testCasesDummyPath = path.join(testCasesPath, 'dummy')
 const pythonSourceCodePath = path.join(sourceCodePath, 'python')
 const cppSourceCodePath = path.join(sourceCodePath, 'cpp')
 
-const dockerSourceCodePath = path.join('/root/virtual-lab/virtual-lab-back-end', 'shared', 'source-codes')
+const basePath = process.env.RUNNER_BASE_PATH || ''
 
-const dockerTestCases = path.join('/root/virtual-lab/virtual-lab-back-end', 'shared', 'test-cases')
+const dockerSourceCodePath = path.join(basePath, 'shared', 'source-codes')
 
-const dockerSourceCodeScripts = path.join('/root/virtual-lab/virtual-lab-back-end', 'shared', 'code-run-scripts')
+const dockerTestCases = path.join(basePath, 'shared', 'test-cases')
+
+const dockerRunScripts = path.join(basePath, 'shared', 'code-run-scripts')
 
 const dockerDummy = path.join(dockerTestCases, 'dummy')
 
@@ -163,11 +165,11 @@ async function runPythonCode(userUid: string, code: string) {
     const filename = 'main.py'
     await writeFile(path.join(userSourceCodePath, dirName, filename), code, { encoding: 'utf-8' })
     workingDir = path.join(userSourceCodePath, dirName)
-    dockerDir = path.join(dockerSourceCodePath, userUid, dirName)
+    dockerDir = path.join(dockerSourceCodePath, 'python', userUid, dirName)
   } catch (err: any) {
     console.log(err)
   }
-  return dockerDir
+  return [dockerDir, workingDir]
 }
 
 async function createCodeFile(userUid: string, code: string, extension: string) {
@@ -208,7 +210,7 @@ async function runCppCodeInDocker(userUid: string, code: string, expId: string) 
       Tty: false,
       name: 'cpp' + userUid,
       HostConfig: {
-        Binds: [`${workingDir}:/source`, `${testCasesPath}:/test-cases`, `${codeRunScripts}:/scripts`]
+        Binds: [`${workingDir}:/source`, `${testCasesPath}:/test-cases`, `${dockerRunScripts}:/scripts`]
       },
     }, {
 
@@ -233,7 +235,7 @@ async function runCppCodeInDocker(userUid: string, code: string, expId: string) 
 async function runPythonCodeInDocker(userUid: string, code: string, expId: string) {
 
   const testCasesPath = await loadTestCases(expId)
-  const workingDir = await runPythonCode(userUid, code);
+  const [dockerDir, workingDir] = await runPythonCode(userUid, code);
   console.log(workingDir, codeRunScripts, testCasesPath, 'paths');
   const outputFile = path.join(workingDir, 'output.txt')
   const errorFile = path.join(workingDir, 'error.txt')
@@ -250,7 +252,7 @@ async function runPythonCodeInDocker(userUid: string, code: string, expId: strin
       Tty: false,
       name: userUid,
       HostConfig: {
-        Binds: [`${workingDir}:/source`, `${testCasesPath}:/test-cases`, `${codeRunScripts}:/scripts`]
+        Binds: [`${dockerDir}:/source`, `${testCasesPath}:/test-cases`, `${dockerRunScripts}:/scripts`]
       },
     }, {
 

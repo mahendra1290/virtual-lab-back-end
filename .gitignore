@@ -42,6 +42,7 @@ test-cases/
 # Typescript v1 declaration files
 typings/
 build/
+ssl/
 
 # Optional npm cache directory
 .npm

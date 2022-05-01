@@ -36,7 +36,6 @@ const module = (function () {
           // io?.in(teacherStudentMap.get(uid) || '').emit(`code-update-${uid}`, data)
         }
 
-        console.log(uid, data);
 
       })
       socket.on('disconnect', () => {

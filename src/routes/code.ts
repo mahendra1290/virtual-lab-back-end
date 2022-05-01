@@ -53,9 +53,7 @@ async function gradeRunResponse(expId: string, output: string) {
     return null
   }
   const tData = testCaseSnap.data() as TestCase
-  console.log(testCaseSnap.data(), output);
   const outputs = split(output, /output.*\n/).filter(val => val)
-  console.log(outputs);
   let match = 0;
   let score = 0;
   const result: { testCase: number, score: number, correct: boolean }[] = []
@@ -221,8 +219,10 @@ async function runCppCodeInDocker(userUid: string, code: string, expId: string) 
 
 
 async function runPythonCodeInDocker(userUid: string, code: string, expId: string) {
+
   const testCasesPath = await loadTestCases(expId)
   const workingDir = await runPythonCode(userUid, code);
+  console.log(workingDir, codeRunScripts, testCasesPath, 'paths');
   const outputFile = path.join(workingDir, 'output.txt')
   const errorFile = path.join(workingDir, 'error.txt')
   writeFile(outputFile, '', { encoding: 'utf-8' })
@@ -301,7 +301,6 @@ router.post('/run', (req: Request, res: Response) => {
     fs.writeFileSync(filename, code, { encoding: 'utf-8' })
     exec(`g++ ${filename} -o ${path.join(__dirname, '..', 'code-submissions', 'a.out')}`, (error, stdout, stderr) => {
       if (error) {
-        console.log(stderr);
         res.status(StatusCodes.ACCEPTED).json({ error: stderr })
       } else {
         exec(path.join(__dirname, '..', 'code-submissions', 'a.out'), (error, stdout, stderr) => {

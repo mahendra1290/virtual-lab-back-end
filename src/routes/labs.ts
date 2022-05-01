@@ -74,7 +74,6 @@ router.post("/:labId/lab-joining-links", async (req: Request, res: Response) => 
  */
 router.post('/students', async (req: Request, res: Response) => {
   const { uid, name, email, code } = req.body;
-  console.log(uid, name, email, code, 'bodu');
   try {
     const query = labCollectionRef.where('joiningLink.code', '==', code)
     const queryRes = await query.get()

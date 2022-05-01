@@ -40,7 +40,6 @@ router.post("/save-progress", async (req, res) => {
 
 router.post("/attach-session", async (req, res) => {
   const { expSessionId, studentName, studentUid } = req.body
-  console.log(req.body)
   const docRef = expSessionsRef.doc(expSessionId)
   const doc = await docRef.get()
   if (doc.exists) {
@@ -104,7 +103,6 @@ router.get("/:id", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params
-    console.log(id);
 
     if (id) {
       const docSnap = await expSessionsRef.doc(id).get()
@@ -177,7 +175,6 @@ router.post("/:id/end", async (req, res) => {
       req.body
       await expSessionsRef.doc(id).set({ ...docSnap.data(), active: false, endedAt: Timestamp.now() }, { merge: true })
       const doc = (await expSessionsRef.doc(id).get()).data()
-      console.log(doc, 'edned');
 
       res.status(StatusCodes.ACCEPTED).json(doc)
     } else {

@@ -16,7 +16,7 @@ const corsOptions = {
   origin: ["http://localhost:3000", "https://virtul-lab-nit.web.app/"],
 }
 
-app.use(cors())
+app.use(cors(corsOptions))
 app.use(logger("dev"))
 app.use(json())
 app.use(urlencoded({ extended: false }))

@@ -1,6 +1,6 @@
 FROM node:18-alpine3.14
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
 COPY package*.json ./
 
@@ -14,4 +14,4 @@ RUN tsc
 
 EXPOSE 5000
 
-CMD [ "node", "./build/index.js" ]
+CMD [ "node", "/build/index.js" ]

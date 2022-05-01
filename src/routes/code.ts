@@ -203,7 +203,7 @@ async function runCppCodeInDocker(userUid: string, code: string, expId: string) 
   writeFile(errorFile, '', { encoding: 'utf-8' })
   const outputStream = fs.createWriteStream(outputFile, 'utf-8')
   const errorStream = fs.createWriteStream(errorFile, 'utf-8')
-  const script = testCasesPath === dockerDummy ? '/scripts/run-python.sh' : '/scripts/run-python-with-inputs.sh'
+  const script = testCasesPath === dockerDummy ? '/scripts/run-cpp.sh' : '/scripts/run-cpp-with-inputs.sh'
   return new Promise((resolve, reject) => {
     docker.run('frolvlad/alpine-gxx', [
       '/bin/sh',

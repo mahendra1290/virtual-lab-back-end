@@ -134,6 +134,8 @@ async function loadTestCases(expId: string) {
 async function runCppCode(userUid: string, code: string) {
   await creatSourceCodeDirectories()
   let workingDir = ''
+  let dockerDir = ''
+
   try {
     const userSourceCodePath = path.join(cppSourceCodePath, userUid);
     if (!fs.existsSync(userSourceCodePath)) {
@@ -144,11 +146,11 @@ async function runCppCode(userUid: string, code: string) {
     const filename = 'main.cpp'
     await writeFile(path.join(userSourceCodePath, dirName, filename), code, { encoding: 'utf-8' })
     workingDir = path.join(userSourceCodePath, dirName)
-
+    dockerDir = path.join(dockerSourceCodePath, 'cpp', userUid, dirName)
   } catch (err: any) {
     console.log(err)
   }
-  return workingDir
+  return [dockerDir, workingDir]
 }
 
 async function runPythonCode(userUid: string, code: string) {
@@ -194,14 +196,14 @@ async function createCodeFile(userUid: string, code: string, extension: string) 
 
 async function runCppCodeInDocker(userUid: string, code: string, expId: string) {
   const testCasesPath = await loadTestCases(expId)
-  const workingDir = await runCppCode(userUid, code);
+  const [dockerDir, workingDir] = await runCppCode(userUid, code);
   const outputFile = path.join(workingDir, 'output.txt')
   const errorFile = path.join(workingDir, 'error.txt')
   writeFile(outputFile, '', { encoding: 'utf-8' })
   writeFile(errorFile, '', { encoding: 'utf-8' })
   const outputStream = fs.createWriteStream(outputFile, 'utf-8')
   const errorStream = fs.createWriteStream(errorFile, 'utf-8')
-  const script = testCasesPath === testCasesDummyPath ? '/scripts/run-cpp.sh' : '/scripts/run-cpp-with-inputs.sh'
+  const script = testCasesPath === dockerDummy ? '/scripts/run-python.sh' : '/scripts/run-python-with-inputs.sh'
   return new Promise((resolve, reject) => {
     docker.run('frolvlad/alpine-gxx', [
       '/bin/sh',
@@ -210,7 +212,7 @@ async function runCppCodeInDocker(userUid: string, code: string, expId: string) 
       Tty: false,
       name: 'cpp' + userUid,
       HostConfig: {
-        Binds: [`${workingDir}:/source`, `${testCasesPath}:/test-cases`, `${dockerRunScripts}:/scripts`]
+        Binds: [`${dockerDir}:/source`, `${testCasesPath}:/test-cases`, `${dockerRunScripts}:/scripts`]
       },
     }, {
 

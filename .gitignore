@@ -43,6 +43,7 @@ test-cases/
 typings/
 build/
 ssl/
+shared/source-codes/
 
 # Optional npm cache directory
 .npm

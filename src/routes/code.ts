@@ -18,13 +18,22 @@ const docker = new Docker({ socketPath: '/var/run/docker.sock' })
 router.use(isAuthenticated)
 
 const absPath = path.join(__dirname, '..', '..', 'codes')
-const sourceCodePath = path.join(__dirname, '..', '..', 'source-codes')
-const expInputsPath = path.join(__dirname, '..', '..', 'exp-inputs')
-const codeRunScripts = path.join(__dirname, '..', '..', 'code-run-scripts')
-const testCasesPath = path.join(__dirname, '..', '..', 'test-cases')
+const sourceCodePath = path.join(__dirname, '..', '..', 'shared', 'source-codes')
+const expInputsPath = path.join(__dirname, '..', '..', 'shared', 'exp-inputs')
+const codeRunScripts = path.join(__dirname, '..', '..', 'shared', 'code-run-scripts')
+const testCasesPath = path.join(__dirname, '..', '..', 'shared', 'test-cases')
 const testCasesDummyPath = path.join(testCasesPath, 'dummy')
 const pythonSourceCodePath = path.join(sourceCodePath, 'python')
 const cppSourceCodePath = path.join(sourceCodePath, 'cpp')
+
+const dockerSourceCodePath = path.join('/root/virtual-lab/virtual-lab-back-end', 'shared', 'source-codes')
+
+const dockerTestCases = path.join('/root/virtual-lab/virtual-lab-back-end', 'shared', 'test-cases')
+
+const dockerSourceCodeScripts = path.join('/root/virtual-lab/virtual-lab-back-end', 'shared', 'code-run-scripts')
+
+const dockerDummy = path.join(dockerTestCases, 'dummy')
+
 
 interface TestCase {
   totalScore: number,
@@ -89,6 +98,7 @@ async function loadTestCases(expId: string) {
     if (testCaseSnap.exists) {
       const testCaseData = testCaseSnap.data() as TestCase
       const testCasePath = path.join(testCasesPath, expId)
+      const docketTestCasePath = path.join(dockerTestCases, expId)
       const exist = fs.existsSync(testCasePath)
       const inpPath = path.join(testCasePath, 'inputs')
       const outPath = path.join(testCasePath, 'outputs')
@@ -108,9 +118,9 @@ async function loadTestCases(expId: string) {
         promises.push(writeFile(path.join(outPath, out.name), out.content, 'utf-8'))
       })
       await Promise.all(promises)
-      return testCasePath
+      return docketTestCasePath
     } else {
-      return testCasesDummyPath
+      return dockerDummy
     }
   }
   catch (err) {
@@ -141,6 +151,7 @@ async function runCppCode(userUid: string, code: string) {
 
 async function runPythonCode(userUid: string, code: string) {
   let workingDir = ''
+  let dockerDir = ''
   try {
     await creatSourceCodeDirectories()
     const userSourceCodePath = path.join(pythonSourceCodePath, userUid);
@@ -152,10 +163,11 @@ async function runPythonCode(userUid: string, code: string) {
     const filename = 'main.py'
     await writeFile(path.join(userSourceCodePath, dirName, filename), code, { encoding: 'utf-8' })
     workingDir = path.join(userSourceCodePath, dirName)
+    dockerDir = path.join(dockerSourceCodePath, userUid, dirName)
   } catch (err: any) {
     console.log(err)
   }
-  return workingDir
+  return dockerDir
 }
 
 async function createCodeFile(userUid: string, code: string, extension: string) {
@@ -229,7 +241,7 @@ async function runPythonCodeInDocker(userUid: string, code: string, expId: strin
   writeFile(errorFile, '', { encoding: 'utf-8' })
   const outputStream = fs.createWriteStream(outputFile, 'utf-8')
   const errorStream = fs.createWriteStream(errorFile, 'utf-8')
-  const script = testCasesPath === testCasesDummyPath ? '/scripts/run-python.sh' : '/scripts/run-python-with-inputs.sh'
+  const script = testCasesPath === dockerDummy ? '/scripts/run-python.sh' : '/scripts/run-python-with-inputs.sh'
   return new Promise((resolve, reject) => {
     docker.run('python:3.10-alpine', [
       '/bin/sh',

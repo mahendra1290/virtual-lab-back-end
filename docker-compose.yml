@@ -10,6 +10,7 @@ services:
     volumes:
       - //var/run/docker.sock:/var/run/docker.sock
       - ./code-run-scripts:/app/build/code-run-scripts
+      - shared:/app/build/shared
 
     networks:
       - app-network
@@ -38,6 +39,12 @@ volumes:
       type: none
       device: /root/virtual-lab/virtual-lab-back-end
       o: bind
+
+  shared:
+    driver: local
+    driver_opts:
+      type: none
+      device: /root/virtual-lab/virtual-lab-back-end/shared
 
   dhparam:
     driver: local

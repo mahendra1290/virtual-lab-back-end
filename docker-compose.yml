@@ -5,7 +5,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: virtual-lab
     container_name: nodejs
     restart: unless-stopped
 

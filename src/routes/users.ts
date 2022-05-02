@@ -9,8 +9,14 @@ const usersRef = db.collection('users')
 
 router.use(isAuthenticated)
 
-router.get('/', (req: Request, res: Response) => {
-  res.send("hello")
+router.get('/:id', async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = await usersRef.doc(id).get()
+  if (user.exists) {
+    res.status(StatusCodes.ACCEPTED).json(user.data())
+  } else {
+    res.status(StatusCodes.NOT_FOUND).json({})
+  }
 })
 
 router.post('/:id', async (req: Request, res: Response) => {

@@ -26,6 +26,17 @@ router.get("/", async (req: Request, res: Response) => {
   }
 })
 
+router.get("/:id/experiments", async (req: Request, res: Response) => {
+  const { id } = req.params
+  const expQuery = db.collection("experiments").where('labId', '==', id)
+  const result = await expQuery.get()
+  if (result.empty) {
+    res.status(StatusCodes.ACCEPTED).json([])
+  } else {
+    res.status(StatusCodes.ACCEPTED).json(result.docs.map(doc => doc.data()))
+  }
+})
+
 router.get("/:labId/lab-joining-links", async (req: Request, res: Response) => {
   const { labId } = req.params;
   const lab = await db.collection('labs').doc(labId).get()
@@ -108,5 +119,7 @@ router.post('/students', async (req: Request, res: Response) => {
 
   }
 })
+
+
 
 export default router

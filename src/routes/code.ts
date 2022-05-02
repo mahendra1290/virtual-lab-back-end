@@ -12,6 +12,7 @@ import { mkdir, readFile, rm, rmdir, writeFile, } from "fs/promises"
 import { functions, split } from "lodash"
 import { Timestamp } from "firebase-admin/firestore"
 import { saveStudentSubmission } from "../lab-sessions-manager"
+import { checkResult } from "../grader/compare"
 
 const docker = new Docker({ socketPath: '/var/run/docker.sock' })
 
@@ -19,12 +20,11 @@ router.use(isAuthenticated)
 
 const absPath = path.join(__dirname, '..', '..', 'codes')
 const sourceCodePath = path.join(__dirname, '..', '..', 'shared', 'source-codes')
-const expInputsPath = path.join(__dirname, '..', '..', 'shared', 'exp-inputs')
-const codeRunScripts = path.join(__dirname, '..', '..', 'shared', 'code-run-scripts')
 const testCasesPath = path.join(__dirname, '..', '..', 'shared', 'test-cases')
 const testCasesDummyPath = path.join(testCasesPath, 'dummy')
 const pythonSourceCodePath = path.join(sourceCodePath, 'python')
 const cppSourceCodePath = path.join(sourceCodePath, 'cpp')
+const javaSourceCodePath = path.join(sourceCodePath, 'java')
 
 const basePath = process.env.RUNNER_BASE_PATH || ''
 
@@ -67,11 +67,12 @@ async function gradeRunResponse(expId: string, output: string) {
   const outputs = split(output, /output.*\n/).filter(val => val)
   let match = 0;
   let score = 0;
+
   const result: { testCase: number, score: number, correct: boolean }[] = []
   tData.outputs.map((item, index) => {
-    const expectedOut = outputs.at(index) || ''
+    const expectedOut = tData.outputs.at(index)
     const normalizeScore = typeof item.score === 'string' ? Number.parseInt(item.score) : item.score
-    if (item.content === expectedOut) {
+    if (checkResult(outputs[index], expectedOut?.content || '')) {
       match += 1;
       score += normalizeScore
       result.push({ testCase: index + 1, score: normalizeScore, correct: true })
@@ -174,6 +175,26 @@ async function runPythonCode(userUid: string, code: string) {
   return [dockerDir, workingDir]
 }
 
+async function setupJavaRunnerFiles(userUid: string, code: string) {
+  let workingDir = ''
+  let dockerDir = ''
+  try {
+    await creatSourceCodeDirectories()
+    const userSourceCodePath = path.join(javaSourceCodePath, userUid);
+    if (!fs.existsSync(userSourceCodePath)) {
+      await mkdir(userSourceCodePath)
+    }
+    const dirName = nanoid(5);
+    await mkdir(path.join(userSourceCodePath, dirName))
+    await writeFile(path.join(userSourceCodePath, dirName, 'Main.java'), code, { encoding: 'utf-8' })
+    workingDir = path.join(userSourceCodePath, dirName)
+    dockerDir = path.join(dockerSourceCodePath, 'java', userUid, dirName)
+  } catch (err: any) {
+    console.log(err)
+  }
+  return [dockerDir, workingDir]
+}
+
 async function createCodeFile(userUid: string, code: string, extension: string) {
   const dirPath = path.join(absPath, `user-${userUid}`);
   return new Promise((resolve, reject) => {
@@ -193,6 +214,47 @@ async function createCodeFile(userUid: string, code: string, extension: string) 
     })
   })
 }
+
+async function runJavaCodeInDocker(userUid: string, code: string, expId: string) {
+  const testCasesPath = await loadTestCases(expId)
+  const [dockerDir, workingDir] = await setupJavaRunnerFiles(userUid, code);
+  const outputFile = path.join(workingDir, 'output.txt')
+  const errorFile = path.join(workingDir, 'error.txt')
+  writeFile(outputFile, '', { encoding: 'utf-8' })
+  writeFile(errorFile, '', { encoding: 'utf-8' })
+  const outputStream = fs.createWriteStream(outputFile, 'utf-8')
+  const errorStream = fs.createWriteStream(errorFile, 'utf-8')
+  const script = testCasesPath === testCasesDummyPath ? '/scripts/run-java.sh' : '/scripts/run-java-with-inputs.sh'
+  return new Promise((resolve, reject) => {
+    docker.run('openjdk:alpine', [
+      '/bin/sh',
+      script
+    ], [outputStream, errorStream], {
+      Tty: false,
+      name: 'java' + userUid,
+      HostConfig: {
+        Binds: [`${dockerDir}:/source`, `${testCasesPath}:/test-cases`, `${dockerRunScripts}:/scripts`]
+      },
+    }, {
+
+    }).then((data) => {
+      const cont = data[1];
+      return cont.remove();
+    }).then(async data => {
+      const outputPromise = readFile(outputFile, { encoding: 'utf-8' })
+      const errorPromise = readFile(errorFile, { encoding: 'utf-8' })
+      const [output, error] = await Promise.all([outputPromise, errorPromise])
+      const res = await gradeRunResponse(expId, output)
+      resolve({ output, error, graderResponse: res })
+    }).catch((err) => {
+      console.log("err", err);
+      reject(err)
+    })
+  })
+
+}
+
+
 
 async function runCppCodeInDocker(userUid: string, code: string, expId: string) {
   const testCasesPath = await loadTestCases(expId)
@@ -238,7 +300,9 @@ async function runPythonCodeInDocker(userUid: string, code: string, expId: strin
 
   const testCasesPath = await loadTestCases(expId)
   const [dockerDir, workingDir] = await runPythonCode(userUid, code);
-  console.log(workingDir, codeRunScripts, testCasesPath, 'paths');
+  // console.log(workingDir, codeRunScripts, testCasesPath, dockerDir, 'paths');
+  console.log(dockerDir, 'docker');
+
   const outputFile = path.join(workingDir, 'output.txt')
   const errorFile = path.join(workingDir, 'error.txt')
   writeFile(outputFile, '', { encoding: 'utf-8' })
@@ -346,17 +410,6 @@ router.post('/run/python', async (req: Request, res: Response) => {
   const { code, expId, sessionId, labId } = req.body;
   const { uid } = req.auth || { uid: '' };
   const result = await runPythonCodeInDocker(uid, code, expId);
-  const studentWork: StudentWork = {
-    uid: uid,
-    expId: expId,
-    labId: labId,
-    sessionId: sessionId,
-    lang: 'python',
-    code: code,
-    runnedAt: Timestamp.now(),
-    graderResult: (result as any).graderResponse as GraderResult || null
-  }
-  saveStudentSubmission(studentWork)
   res.status(StatusCodes.ACCEPTED).json(result || {})
 })
 
@@ -365,12 +418,31 @@ router.post('/run/cpp', async (req: Request, res: Response) => {
   const { code, expId, sessionId, labId } = req.body;
   const { uid } = req.auth || { uid: '' };
   const result = await runCppCodeInDocker(uid, code, expId);
+  res.status(StatusCodes.ACCEPTED).json(result || {})
+})
+
+router.post('/run/java', async (req: Request, res: Response) => {
+  const { code, expId, sessionId, labId } = req.body;
+  const { uid } = req.auth || { uid: '' };
+  const result = await runJavaCodeInDocker(uid, code, expId);
+  res.status(StatusCodes.ACCEPTED).json(result || {})
+})
+
+router.post('/submit', async (req: Request, res: Response) => {
+  const { lang, code, expId, sessionId, labId } = req.body;
+  const { uid } = req.auth || { uid: '' };
+  let result: any = null
+  if (lang === 'cpp') {
+    result = await runCppCodeInDocker(uid, code, expId);
+  } else if (lang === 'python') {
+    result = await runPythonCodeInDocker(uid, code, expId)
+  }
   const studentWork: StudentWork = {
     uid: uid,
     expId: expId,
     labId: labId,
     sessionId: sessionId,
-    lang: 'cpp',
+    lang: lang,
     code: code,
     runnedAt: Timestamp.now(),
     graderResult: (result as any).graderResponse as GraderResult || null

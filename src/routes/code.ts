@@ -407,48 +407,67 @@ router.post('/run/js', async (req: Request, res: Response) => {
 })
 
 router.post('/run/python', async (req: Request, res: Response) => {
-  const { code, expId, sessionId, labId } = req.body;
-  const { uid } = req.auth || { uid: '' };
-  const result = await runPythonCodeInDocker(uid, code, expId);
-  res.status(StatusCodes.ACCEPTED).json(result || {})
+  try {
+    const { code, expId, sessionId, labId } = req.body;
+    const { uid } = req.auth || { uid: '' };
+    const result = await runPythonCodeInDocker(uid, code, expId);
+    res.status(StatusCodes.ACCEPTED).json(result || {})
+  } catch (err) {
+    res.status(StatusCodes.BAD_REQUEST).json(err)
+  }
 })
 
 
 router.post('/run/cpp', async (req: Request, res: Response) => {
-  const { code, expId, sessionId, labId } = req.body;
-  const { uid } = req.auth || { uid: '' };
-  const result = await runCppCodeInDocker(uid, code, expId);
-  res.status(StatusCodes.ACCEPTED).json(result || {})
+  try {
+    const { code, expId, sessionId, labId } = req.body;
+    const { uid } = req.auth || { uid: '' };
+    const result = await runCppCodeInDocker(uid, code, expId);
+    res.status(StatusCodes.ACCEPTED).json(result || {})
+  } catch (err) {
+    res.status(StatusCodes.BAD_REQUEST).json(err)
+  }
 })
 
 router.post('/run/java', async (req: Request, res: Response) => {
-  const { code, expId, sessionId, labId } = req.body;
-  const { uid } = req.auth || { uid: '' };
-  const result = await runJavaCodeInDocker(uid, code, expId);
-  res.status(StatusCodes.ACCEPTED).json(result || {})
+  try {
+    const { code, expId, sessionId, labId } = req.body;
+    const { uid } = req.auth || { uid: '' };
+    const result = await runJavaCodeInDocker(uid, code, expId);
+    res.status(StatusCodes.ACCEPTED).json(result || {})
+  } catch (err) {
+    res.status(StatusCodes.BAD_GATEWAY).json(err)
+  }
 })
 
 router.post('/submit', async (req: Request, res: Response) => {
-  const { lang, code, expId, sessionId, labId } = req.body;
-  const { uid } = req.auth || { uid: '' };
-  let result: any = null
-  if (lang === 'cpp') {
-    result = await runCppCodeInDocker(uid, code, expId);
-  } else if (lang === 'python') {
-    result = await runPythonCodeInDocker(uid, code, expId)
+  try {
+    const { lang, code, expId, sessionId, labId } = req.body;
+    const { uid } = req.auth || { uid: '' };
+    let result: any = null
+    if (lang === 'cpp') {
+      result = await runCppCodeInDocker(uid, code, expId);
+    } else if (lang === 'python') {
+      result = await runPythonCodeInDocker(uid, code, expId)
+    } else if (lang === 'java') {
+      result = await runJavaCodeInDocker(uid, code, expId)
+    }
+    const studentWork: StudentWork = {
+      uid: uid,
+      expId: expId,
+      labId: labId,
+      sessionId: sessionId,
+      lang: lang,
+      code: code,
+      runnedAt: Timestamp.now(),
+      graderResult: (result as any).graderResponse as GraderResult || null
+    }
+    saveStudentSubmission(studentWork)
+    res.status(StatusCodes.ACCEPTED).json(result || {})
+  } catch (err) {
+    res.status(StatusCodes.BAD_GATEWAY).json(err)
+
   }
-  const studentWork: StudentWork = {
-    uid: uid,
-    expId: expId,
-    labId: labId,
-    sessionId: sessionId,
-    lang: lang,
-    code: code,
-    runnedAt: Timestamp.now(),
-    graderResult: (result as any).graderResponse as GraderResult || null
-  }
-  saveStudentSubmission(studentWork)
-  res.status(StatusCodes.ACCEPTED).json(result || {})
 })
 
 

@@ -29,6 +29,11 @@ async function sendNotifications(uids: string[], notification: FireNotification)
 router.post("/lab-invite", async (req: Request, res: Response) => {
   const { emails, labJoinUrl, labName } = req.body;
 
+  if (!emails || !labJoinUrl || !labName) {
+    res.status(StatusCodes.BAD_REQUEST).json({ message: 'emails or lab join url not provided' })
+    return
+  }
+
   const data = await usersRef.where('email', 'in', emails).get()
   if (!data.empty) {
     const uids = data.docs.map(doc => doc.id)

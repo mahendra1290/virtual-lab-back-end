@@ -10,7 +10,7 @@ import { exec } from "child_process"
 import Docker from "dockerode"
 import { mkdir, readFile, rm, rmdir, writeFile, } from "fs/promises"
 import { functions, split } from "lodash"
-import { Timestamp } from "firebase-admin/firestore"
+import { DocumentData, Timestamp } from "firebase-admin/firestore"
 import { saveStudentSubmission } from "../lab-sessions-manager"
 import { checkResult } from "../grader/compare"
 
@@ -414,6 +414,14 @@ router.post('/run/python', async (req: Request, res: Response) => {
     const { code, expId, sessionId, labId } = req.body;
     const { uid } = req.auth || { uid: '' };
     const result = await runPythonCodeInDocker(uid, code, expId);
+    if (result) {
+      try {
+        const docRef = db.collection('run-outputs').doc(`${sessionId}${uid}`)
+        docRef.set(result as DocumentData)
+      } catch (err) {
+        console.log(err);
+      }
+    }
     res.status(StatusCodes.ACCEPTED).json(result || {})
   } catch (err) {
     res.status(StatusCodes.BAD_REQUEST).json(err)
@@ -426,6 +434,14 @@ router.post('/run/cpp', async (req: Request, res: Response) => {
     const { code, expId, sessionId, labId } = req.body;
     const { uid } = req.auth || { uid: '' };
     const result = await runCppCodeInDocker(uid, code, expId);
+    if (result) {
+      try {
+        const docRef = db.collection('run-outputs').doc(`${sessionId}${uid}`)
+        docRef.set(result as DocumentData)
+      } catch (err) {
+        console.log(err);
+      }
+    }
     res.status(StatusCodes.ACCEPTED).json(result || {})
   } catch (err) {
     res.status(StatusCodes.BAD_REQUEST).json(err)
@@ -437,6 +453,14 @@ router.post('/run/java', async (req: Request, res: Response) => {
     const { code, expId, sessionId, labId } = req.body;
     const { uid } = req.auth || { uid: '' };
     const result = await runJavaCodeInDocker(uid, code, expId);
+    if (result) {
+      try {
+        const docRef = db.collection('run-outputs').doc(`${sessionId}${uid}`)
+        docRef.set(result as DocumentData)
+      } catch (err) {
+        console.log(err);
+      }
+    }
     res.status(StatusCodes.ACCEPTED).json(result || {})
   } catch (err) {
     res.status(StatusCodes.BAD_GATEWAY).json(err)
@@ -459,6 +483,14 @@ router.post('/submit', async (req: Request, res: Response) => {
       result = await runPythonCodeInDocker(uid, code, expId)
     } else if (lang === 'java') {
       result = await runJavaCodeInDocker(uid, code, expId)
+    }
+    if (result) {
+      try {
+        const docRef = db.collection('run-outputs').doc(`${sessionId}${uid}`)
+        docRef.set(result as DocumentData)
+      } catch (err) {
+        console.log(err);
+      }
     }
     const studentWork: StudentWork = {
       uid: uid,

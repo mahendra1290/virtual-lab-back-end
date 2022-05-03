@@ -68,10 +68,13 @@ async function gradeRunResponse(expId: string, output: string) {
   let match = 0;
   let score = 0;
 
+  let totScore = 0;
+
   const result: { testCase: number, score: number, correct: boolean }[] = []
   tData.outputs.map((item, index) => {
     const expectedOut = tData.outputs.at(index)
     const normalizeScore = typeof item.score === 'string' ? Number.parseInt(item.score) : item.score
+    totScore += normalizeScore
     if (checkResult(outputs[index], expectedOut?.content || '')) {
       match += 1;
       score += normalizeScore
@@ -91,7 +94,7 @@ async function gradeRunResponse(expId: string, output: string) {
   } else {
     verdict = 'Incorrect'
   }
-  return { verdict, verdictCode, result, totalScore: score };
+  return { verdict, verdictCode, result, totalScore: totScore, scoreReceived: score };
 }
 
 async function loadTestCases(expId: string) {
@@ -442,7 +445,12 @@ router.post('/run/java', async (req: Request, res: Response) => {
 
 router.post('/submit', async (req: Request, res: Response) => {
   try {
-    const { lang, code, expId, sessionId, labId } = req.body;
+    const { lang, code, expId, sessionId, labId, practice } = req.body;
+
+    const col = practice ? 'practice-sessions' : 'lab-sessions'
+    const sessionRef = db.collection(col).doc(sessionId)
+    const sessionData = (await sessionRef.get()).data()
+
     const { uid } = req.auth || { uid: '' };
     let result: any = null
     if (lang === 'cpp') {
@@ -457,6 +465,7 @@ router.post('/submit', async (req: Request, res: Response) => {
       expId: expId,
       labId: labId,
       sessionId: sessionId,
+      session: sessionData || null,
       lang: lang,
       code: code,
       runnedAt: Timestamp.now(),
@@ -465,8 +474,9 @@ router.post('/submit', async (req: Request, res: Response) => {
     saveStudentSubmission(studentWork)
     res.status(StatusCodes.ACCEPTED).json(result || {})
   } catch (err) {
-    res.status(StatusCodes.BAD_GATEWAY).json(err)
+    console.log(err);
 
+    res.status(StatusCodes.BAD_REQUEST).json(err)
   }
 })
 

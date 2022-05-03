@@ -17,5 +17,6 @@ interface StudentWork {
   expId: string,
   labId: string,
   runnedAt: Timestamp,
+  session: any,
   graderResult: GraderResult
 }

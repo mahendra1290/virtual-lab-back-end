@@ -100,6 +100,34 @@ router.get("/:id", async (req, res) => {
   }
 })
 
+router.get("/practice/:id", async (req, res) => {
+  try {
+    const { id } = req.params
+    if (!id) {
+      res.status(StatusCodes.BAD_REQUEST).json({ error: 'id not provided' })
+    }
+    const docSnap = await db.collection('practice-sessions').doc(id).get()
+    if (docSnap.exists) {
+      const data = docSnap.data() as any
+      const labId = data.labId;
+      const expId = data.expId;
+      const labSnap = labsRef.doc(labId).get()
+      const expSnap = expRef.doc(expId).get()
+      const [labData, expData] = await Promise.all([labSnap, expSnap])
+      res.status(StatusCodes.ACCEPTED).json({
+        ...data,
+        lab: labData.data(),
+        exp: expData.data()
+      })
+    } else {
+      res.status(StatusCodes.NOT_FOUND).json({ error: "Lab session not found" })
+    }
+  } catch (err: any) {
+    console.log(err)
+    res.status(StatusCodes.BAD_REQUEST).json({ error: "Something went wrong", message: err.message })
+  }
+})
+
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params
@@ -203,6 +231,34 @@ router.get("/", async (req: Request, res: Response) => {
     res.status(StatusCodes.ACCEPTED).json(labSessions.docs.map(docSnap => docSnap.data()))
   } else {
     res.status(StatusCodes.ACCEPTED).json([])
+  }
+})
+
+router.post("/practice", async (req, res, next) => {
+  try {
+    const { expId, labId } = req.body
+    if (!expId || !labId) {
+      res.status(StatusCodes.BAD_REQUEST).send({
+        error: "expId or labId not provided",
+        message: "ExperimentId or LabId not provided",
+      })
+    }
+
+    const id = nanoid()
+    const docRef = await db.collection('practice-sessions').doc(id).set({
+      id: id,
+      active: true,
+      expId: expId,
+      labId: labId,
+      uid: req.auth?.uid,
+      practice: true,
+      startedAt: Timestamp.now()
+    })
+    const docSnap = await db.collection('practice-sessions').doc(id).get()
+    res.status(StatusCodes.CREATED).send(docSnap.data())
+  } catch (err) {
+    console.log(err)
+    res.status(403).send("Something went wrong")
   }
 })
 

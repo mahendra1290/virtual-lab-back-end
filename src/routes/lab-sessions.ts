@@ -8,12 +8,12 @@ import { db } from "../fireabase"
 import { sendLabSessionStartNotification } from "../utils"
 
 
-const expSessionsRef = db.collection("lab-sessions")
+const labSessionRef = db.collection("lab-sessions")
 const labsRef = db.collection("labs")
 const expRef = db.collection(`experiments`)
 
 const getActiveLabSession = async (labId: string, expId: string) => {
-  const query = expSessionsRef.where("expId", "==", expId).where("labId", "==", labId)
+  const query = labSessionRef.where("expId", "==", expId).where("labId", "==", labId)
   const docSnap = await query.get()
   if (docSnap && docSnap.docs && !docSnap.empty) {
     const sessionDoc = docSnap.docs.at(0)?.data()
@@ -28,7 +28,7 @@ router.use(isAuthenticated)
 
 router.post("/save-progress", async (req, res) => {
   const { expSessionId, studentUid, code } = req.body
-  const expRef = expSessionsRef.doc(expSessionId)
+  const expRef = labSessionRef.doc(expSessionId)
   const studentRef = expRef.collection("students").doc(studentUid)
   const studentDoc = await studentRef.get()
   if (studentDoc.exists) {
@@ -40,7 +40,7 @@ router.post("/save-progress", async (req, res) => {
 
 router.post("/attach-session", async (req, res) => {
   const { expSessionId, studentName, studentUid } = req.body
-  const docRef = expSessionsRef.doc(expSessionId)
+  const docRef = labSessionRef.doc(expSessionId)
   const doc = await docRef.get()
   if (doc.exists) {
     const newDocRef = docRef.collection("students").doc(studentUid)
@@ -55,7 +55,7 @@ router.post("/attach-session", async (req, res) => {
 router.post("/end-experiment-session", async (req, res) => {
   try {
     const { sessionId } = req.body
-    const docRef = expSessionsRef.doc(sessionId)
+    const docRef = labSessionRef.doc(sessionId)
     const doc = await docRef.get()
     if (doc.exists) {
       const writeRes = await docRef.set(
@@ -78,7 +78,7 @@ router.get("/:id", async (req, res) => {
     if (!id) {
       res.status(StatusCodes.BAD_REQUEST).json({ error: 'id not provided' })
     }
-    const docSnap = await expSessionsRef.doc(id).get()
+    const docSnap = await labSessionRef.doc(id).get()
     if (docSnap.exists) {
       const data = docSnap.data() as any
       const labId = data.labId;
@@ -133,10 +133,10 @@ router.put("/:id", async (req, res) => {
     const { id } = req.params
 
     if (id) {
-      const docSnap = await expSessionsRef.doc(id).get()
+      const docSnap = await labSessionRef.doc(id).get()
       if (docSnap.exists) {
         req.body
-        const writeRes = await expSessionsRef.doc(id).set({ ...docSnap.data(), ...req.body }, { merge: true })
+        const writeRes = await labSessionRef.doc(id).set({ ...docSnap.data(), ...req.body }, { merge: true })
         res.status(StatusCodes.ACCEPTED).json()
       }
     }
@@ -146,63 +146,17 @@ router.put("/:id", async (req, res) => {
   }
 })
 
-// router.post("/:id/join", async (req, res) => {
-//   try {
-//     const { id } = req.params
-//     if (!id) {
-//       res.status(StatusCodes.BAD_REQUEST).json({ error: 'id not provided' })
-//     }
-//     const docSnap = await expSessionsRef.doc(id).get()
-//     if (docSnap.exists) {
-//       // req.body
-//       // await expSessionsRef.doc(id).set({ ...docSnap.data(), active: false, endedAt: Timestamp.now() }, { merge: true })
-//       // const doc = (await expSessionsRef.doc(id).get()).data()
-//       // console.log(doc, 'edned');
-
-//       res.status(StatusCodes.ACCEPTED).json(doc)
-//     } else {
-//       res.status(StatusCodes.NOT_FOUND).json({ error: 'lab session not found' })
-//     }
-//   } catch (err: any) {
-//     console.log(err)
-//     res.status(StatusCodes.BAD_REQUEST).json({ message: err.message })
-//   }
-// })
-
-// router.post("/:id/leave", async (req, res) => {
-//   try {
-//     const { id } = req.params
-//     if (!id) {
-//       res.status(StatusCodes.BAD_REQUEST).json({ error: 'id not provided' })
-//     }
-//     const docSnap = await expSessionsRef.doc(id).get()
-//     if (docSnap.exists) {
-//       // req.body
-//       // await expSessionsRef.doc(id).set({ ...docSnap.data(), active: false, endedAt: Timestamp.now() }, { merge: true })
-//       // const doc = (await expSessionsRef.doc(id).get()).data()
-//       // console.log(doc, 'edned');
-
-//       res.status(StatusCodes.ACCEPTED).json(doc)
-//     } else {
-//       res.status(StatusCodes.NOT_FOUND).json({ error: 'lab session not found' })
-//     }
-//   } catch (err: any) {
-//     console.log(err)
-//     res.status(StatusCodes.BAD_REQUEST).json({ message: err.message })
-//   }
-// })
-
 router.post("/:id/end", async (req, res) => {
   try {
     const { id } = req.params
     if (!id) {
       res.status(StatusCodes.BAD_REQUEST).json({ error: 'id not provided' })
     }
-    const docSnap = await expSessionsRef.doc(id).get()
+    const docSnap = await labSessionRef.doc(id).get()
     if (docSnap.exists) {
       req.body
-      await expSessionsRef.doc(id).set({ ...docSnap.data(), active: false, endedAt: Timestamp.now() }, { merge: true })
-      const doc = (await expSessionsRef.doc(id).get()).data()
+      await labSessionRef.doc(id).set({ ...docSnap.data(), active: false, endedAt: Timestamp.now() }, { merge: true })
+      const doc = (await labSessionRef.doc(id).get()).data()
 
       res.status(StatusCodes.ACCEPTED).json(doc)
     } else {
@@ -216,7 +170,27 @@ router.post("/:id/end", async (req, res) => {
 
 router.get("/", async (req: Request, res: Response) => {
   const { expId, active, labId } = req.query
-  let query = expSessionsRef.where('uid', '==', req.auth?.uid);
+  let query = labSessionRef.where('uid', '==', req.auth?.uid);
+  if (active) {
+    query = query.where('active', '==', true)
+  }
+  if (expId) {
+    query = query.where('expId', '==', expId)
+  }
+  if (labId) {
+    query = query.where('labId', '==', labId)
+  }
+  const labSessions = await query.get()
+  if (!labSessions.empty) {
+    res.status(StatusCodes.ACCEPTED).json(labSessions.docs.map(docSnap => docSnap.data()))
+  } else {
+    res.status(StatusCodes.ACCEPTED).json([])
+  }
+})
+
+router.get("/practice", async (req: Request, res: Response) => {
+  const { expId, active, labId } = req.query
+  let query = db.collection('practice-sessions').where('uid', '==', req.auth?.uid);
   if (active) {
     query = query.where('active', '==', true)
   }
@@ -236,7 +210,7 @@ router.get("/", async (req: Request, res: Response) => {
 
 router.post("/practice", async (req, res, next) => {
   try {
-    const { expId, labId } = req.body
+    const { expId, labId, expName, labName } = req.body
     if (!expId || !labId) {
       res.status(StatusCodes.BAD_REQUEST).send({
         error: "expId or labId not provided",
@@ -249,6 +223,8 @@ router.post("/practice", async (req, res, next) => {
       id: id,
       active: true,
       expId: expId,
+      expName: expName || '',
+      labName: labName || '',
       labId: labId,
       uid: req.auth?.uid,
       practice: true,
@@ -278,8 +254,8 @@ router.post("/", async (req, res, next) => {
     }
     if (!oldSessionActive) {
       const id = nanoid()
-      if (expSessionsRef.doc(id)) {
-        const docRef = await expSessionsRef.doc(id).set({
+      if (labSessionRef.doc(id)) {
+        const docRef = await labSessionRef.doc(id).set({
           id: id,
           active: true,
           expId: expId,
@@ -289,7 +265,7 @@ router.post("/", async (req, res, next) => {
         })
         const sessionUrl = `/s/lab-session/${id}`
         sendLabSessionStartNotification(labId, sessionUrl)
-        const docSnap = await expSessionsRef.doc(id).get()
+        const docSnap = await labSessionRef.doc(id).get()
         res.status(StatusCodes.CREATED).send(docSnap.data())
       }
     }

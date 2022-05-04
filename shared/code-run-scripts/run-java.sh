@@ -1,7 +1,6 @@
 #!bin/sh
-
 cd /source
 
 javac Main.java
 
-java Main
+timeout -t 1 java Main

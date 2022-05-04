@@ -9,6 +9,6 @@ ind=0
 for filename in /test-cases/inputs/*.txt; do
   # ./MyProgram.exe "$filename" "Logs/$(basename "$filename" .txt)_Log$i.txt"
   echo output-$ind.txt
-  java Main < $filename
+  timeout -t 1 java Main < $filename
   ind=$((ind+1))
 done

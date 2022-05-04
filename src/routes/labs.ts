@@ -116,7 +116,7 @@ router.post('/students', async (req: Request, res: Response) => {
     }
   } catch (err) {
     console.log(err);
-
+    res.status(StatusCodes.BAD_REQUEST).send({ code: 'something went wrong' })
   }
 })
 

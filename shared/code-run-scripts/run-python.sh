@@ -1,3 +1,4 @@
 #!bin/sh
+ulimit -Sv 100000 -Sf 20000
 
-python /source/main.py
+timeout 1 python /source/main.py -k 4

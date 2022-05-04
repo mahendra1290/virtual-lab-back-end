@@ -11,6 +11,10 @@ router.use(isAuthenticated)
 
 router.get('/:id', async (req: Request, res: Response) => {
   const { id } = req.params;
+  if (!id) {
+    res.status(StatusCodes.BAD_REQUEST).json({ code: 'users/id-not-provided', message: 'user id not provided as url parameter' })
+    return
+  }
   const user = await usersRef.doc(id).get()
   if (user.exists) {
     res.status(StatusCodes.ACCEPTED).json(user.data())
@@ -21,6 +25,13 @@ router.get('/:id', async (req: Request, res: Response) => {
 
 router.post('/:id', async (req: Request, res: Response) => {
   const { role, displayName } = req.body;
+  if (!role) {
+    res.status(StatusCodes.BAD_REQUEST).json({ code: 'user/role-not-provided' })
+    return
+  }
+  if (!displayName) {
+    res.status(StatusCodes.BAD_REQUEST).json({ code: 'user/display-name-not-provided' })
+  }
   const { id } = req.params;
   if (req.auth?.uid === id) {
     const user = await auth.getUser(id)
@@ -54,7 +65,6 @@ router.post('/:id', async (req: Request, res: Response) => {
     }
   } else {
     res.status(StatusCodes.UNAUTHORIZED).json({ message: "Unauthorized" })
-
   }
 })
 

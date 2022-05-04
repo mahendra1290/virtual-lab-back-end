@@ -7,7 +7,7 @@ import { ReasonPhrases, StatusCodes, getReasonPhrase, getStatusCode } from "http
 import { isAuthenticated } from "../middlewares/auth"
 import { db } from "../fireabase"
 import { exec } from "child_process"
-import Docker from "dockerode"
+import Docker, { Container, ContainerInfo } from "dockerode"
 import { mkdir, readFile, rm, rmdir, writeFile, } from "fs/promises"
 import { functions, split } from "lodash"
 import { DocumentData, Timestamp } from "firebase-admin/firestore"
@@ -165,6 +165,9 @@ async function runPythonCode(userUid: string, code: string) {
     const userSourceCodePath = path.join(pythonSourceCodePath, userUid);
     if (!fs.existsSync(userSourceCodePath)) {
       await mkdir(userSourceCodePath)
+    } else {
+      await rm(userSourceCodePath, { recursive: true, force: true })
+      await mkdir(userSourceCodePath)
     }
     const dirName = nanoid(5);
     await mkdir(path.join(userSourceCodePath, dirName))
@@ -234,7 +237,7 @@ async function runJavaCodeInDocker(userUid: string, code: string, expId: string)
       script
     ], [outputStream, errorStream], {
       Tty: false,
-      name: 'java' + userUid,
+      name: `java-${userUid}-${nanoid(4)}`,
       HostConfig: {
         Binds: [`${dockerDir}:/source`, `${testCasesPath}:/test-cases`, `${dockerRunScripts}:/scripts`]
       },
@@ -275,7 +278,7 @@ async function runCppCodeInDocker(userUid: string, code: string, expId: string) 
       script
     ], [outputStream, errorStream], {
       Tty: false,
-      name: 'cpp' + userUid,
+      name: `cpp-${userUid}-${nanoid(4)}`,
       HostConfig: {
         Binds: [`${dockerDir}:/source`, `${testCasesPath}:/test-cases`, `${dockerRunScripts}:/scripts`]
       },
@@ -303,8 +306,6 @@ async function runPythonCodeInDocker(userUid: string, code: string, expId: strin
 
   const testCasesPath = await loadTestCases(expId)
   const [dockerDir, workingDir] = await runPythonCode(userUid, code);
-  // console.log(workingDir, codeRunScripts, testCasesPath, dockerDir, 'paths');
-  console.log(dockerDir, 'docker');
 
   const outputFile = path.join(workingDir, 'output.txt')
   const errorFile = path.join(workingDir, 'error.txt')
@@ -319,14 +320,14 @@ async function runPythonCodeInDocker(userUid: string, code: string, expId: strin
       script
     ], [outputStream, errorStream], {
       Tty: false,
-      name: userUid,
+      name: `python-${userUid}-${nanoid(4)}`,
       HostConfig: {
         Binds: [`${dockerDir}:/source`, `${testCasesPath}:/test-cases`, `${dockerRunScripts}:/scripts`]
       },
     }, {
 
     }).then((data) => {
-      const cont = data[1];
+      const cont = data[1] as Container;
       return cont.remove();
     }).then(async data => {
       const outputPromise = readFile(outputFile, { encoding: 'utf-8' })

@@ -144,6 +144,9 @@ async function runCppCode(userUid: string, code: string) {
     const userSourceCodePath = path.join(cppSourceCodePath, userUid);
     if (!fs.existsSync(userSourceCodePath)) {
       await mkdir(userSourceCodePath)
+    } else {
+      await rm(userSourceCodePath, { recursive: true, force: true })
+      await mkdir(userSourceCodePath)
     }
     const dirName = nanoid(5);
     await mkdir(path.join(userSourceCodePath, dirName))
@@ -188,6 +191,9 @@ async function setupJavaRunnerFiles(userUid: string, code: string) {
     await creatSourceCodeDirectories()
     const userSourceCodePath = path.join(javaSourceCodePath, userUid);
     if (!fs.existsSync(userSourceCodePath)) {
+      await mkdir(userSourceCodePath)
+    } else {
+      await rm(userSourceCodePath, { recursive: true, force: true })
       await mkdir(userSourceCodePath)
     }
     const dirName = nanoid(5);
